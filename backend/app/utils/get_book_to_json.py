@@ -68,7 +68,6 @@ def load_book_info(api: WeReadAPI, book_id: str) -> Book:
     try:
         book_detail = api.get_book_detail(book_id)
         book_detail = WeReadParser.parse_book(book_detail)
-        print(book_detail)
         print(f"[load_book_info]获取书籍详情成功")
     except Exception as e:
         print(f"[load_book_info]获取书籍详情失败: {e}")
@@ -154,14 +153,13 @@ def save_json_file(api: WeReadAPI, title: str, file_path: str) -> None:
 
 if __name__ == "__main__":
     # this is a test
-    file_path = "../data/books"
-    # org ="RK=lgUocdW7UY; ptcz=01ffcf4c86010bc987deed6346ff0430a35480f104207c4298d9fc36caf6c8ca; yyb_muid=0A027D80C30A6A3E3CF668EDC20B6B13; wr_gid=207622135; wr_fp=2210286394; wr_ql=0; wr_vid=290840888; wr_rt=web%40_cXh7g9H9aA8YXAaYRm_AL; wr_skey=5vWm2RuB"
-    # cookies = parse_cookies(org)
+    file_path = "data/books"
+    org ="RK=lgUocdW7UY; ptcz=01ffcf4c86010bc987deed6346ff0430a35480f104207c4298d9fc36caf6c8ca; yyb_muid=0A027D80C30A6A3E3CF668EDC20B6B13; wr_gid=207622135; wr_fp=2210286394; wr_ql=0; wr_vid=290840888; wr_rt=web%40_cXh7g9H9aA8YXAaYRm_AL; wr_skey=5vWm2RuB"
+    cookies = parse_cookies(org)
 
-    # api = WeReadAPI(cookies)
-    
-    # save_json_file(api, "巴比伦最富有的人", file_path)
-    with open(f"{file_path}/巴比伦最富有的人.json", 'r', encoding='utf-8') as f:
-        f.write("aa")
+    api = WeReadAPI(cookies)
+
+    save_json_file(api, "巴比伦最富有的人", file_path)
+
 
 
