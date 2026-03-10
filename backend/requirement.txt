@@ -1,0 +1,12 @@
+langgraph
+langchain
+langchain-core
+langchain_community
+chromadb
+tavily-python
+ requests
+ sqlalchemy
+ pydantic
+ fastapi
+ uvicorn
+ python-dotenv
