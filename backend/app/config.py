@@ -6,7 +6,7 @@ load_dotenv()
 
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-WEREAD_COOKIE = os.getenv("WECHAT_COOKIE")
+WEREAD_COOKIE = os.getenv("WEREAD_COOKIE")
 
 
 # Chroma 配置
@@ -17,3 +17,7 @@ CHROMA_CONF={
     "separators": ["\n\n", "\n", ",", "?", ".", "！", "？", "。", " ", ""],
     "k": 3,
 }
+
+
+books_file_path = "data/books"
+notes_file_path = "data/notes"

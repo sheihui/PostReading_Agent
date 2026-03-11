@@ -5,7 +5,7 @@ import os
 tavily_client = api_key=os.getenv("TAVILY_API_KEY")
 
 @tool
-def search_books_point(book_title: str) -> str:
+def search_books_perspective(book_title: str) -> str:
     """搜索书籍核心观点"""
     client = TavilyClient(api_key=tavily_client)
     query = f"{book_title} 核心观点"

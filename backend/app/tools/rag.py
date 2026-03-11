@@ -1,6 +1,7 @@
+from pydantic import FilePath
 from langchain_core.tools import tool
 from app.storage.vector_store import VectorStore
-from app.config import CHROMA_CONF
+from app.config import CHROMA_CONF, books_file_path
 
 
 
@@ -9,7 +10,6 @@ from app.config import CHROMA_CONF
 def rag_retrieve(query: str, collection: str="books") -> str:
     """
     RAG 检索
-    
     Args:
         query: 查询内容
         collection: collection 名称(默认 "books")
@@ -22,14 +22,14 @@ def rag_retrieve(query: str, collection: str="books") -> str:
 
 
 @tool
-def rag_add_documents(collection: str="books", filepath: str=None):
+def rag_add_book_documents(title: str, collection: str="books"):
     """
     RAG 添加文档
-    
     Args:
+        title: 书籍标题
         collection: collection 名称(默认 "books")
-        filepath: JSON 文件路径
     """
+    filepath = f"{books_file_path}/{title}.json"
     vector_store = VectorStore(collection)
     documents = vector_store.load_parse_documents(filepath)
     split_docs = vector_store.split_documents(documents)
