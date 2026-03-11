@@ -21,18 +21,23 @@ def collect_info(state: AgentState) -> AgentState:
     - 搜索读者观点 → state
     """
     book_title = state["book_title"]
-    book_id = state["book_id"]
+    # book_id = state["book_id"]
     
     # ===== 步骤 1-2: 获取划线+笔记，存入 RAG =====
     # 获取书籍信息
-    book_info = get_book_info(book_id)
+    book_info = get_book_info(book_title)
     # 保存书籍信息到 JSON 文件
     save_json_file(book_info, book_title)
     # 添加书籍文档到 RAG 系统
-    rag_add_book_documents(book_title)
+    rag_add_book_documents.invoke({"title": book_title})
     
     # 提取书籍简介
-    book_intro = book_info.get("intro", "")
+    book_intro = book_info["book_info"].get("intro", "").strip()
+
+    print(f"节点1[collect_info]获取划线+笔记，存入 RAG成功，书籍标题：{book_title}")
+    print("="*50)
+    print(f"书籍简介：{book_intro}")
+    print("="*50)
     
     # ===== 步骤 3: 搜索书籍核心观点 → state =====
     perspective_raw = search_books_perspective.invoke({"book_title": book_title})

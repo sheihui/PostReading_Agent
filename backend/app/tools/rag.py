@@ -35,3 +35,9 @@ def rag_add_book_documents(title: str, collection: str="books"):
     split_docs = vector_store.split_documents(documents)
     vector_store.add_documents(split_docs)
     return f"已添加 {len(split_docs)} 条内容到 {collection}"
+
+
+if __name__ == "__main__":
+    # test rag_add_book_documents
+    # 如要测试请先注释@tool 装饰器
+    rag_add_book_documents.invoke({"title": "思考致富"})

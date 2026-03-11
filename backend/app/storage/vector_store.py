@@ -4,7 +4,8 @@ from langchain_core import documents
 """
 import os
 import json
-from langchain_community.vectorstores import Chroma
+# from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -100,7 +101,7 @@ class VectorStore:
                     "title": title,
                     "type": "review",
                     "chapter_uid": review.get("chapter_uid", -1),
-                    "chapter_title": chapters[review.get("chapter_uid", -1) - 1]["title"]
+                    "chapter_title": review.get("chapter_title", "")
                 }
             )
             documents.append(review_text)
