@@ -1,5 +1,7 @@
 # PostReading Agent 📚
 
+本项目基于 **LangGraph** 实现 **Plan-and-Execute + Reflection** 双范式，支持用户个人问题驱动的交互式读书笔记生成。
+
 一个 AI 读书助手，帮助你深度阅读和思考书籍内容。
 
 ## 功能特性
@@ -10,6 +12,35 @@
 - **笔记生成**：自动整理对话内容，生成结构化读书笔记
 
 ## 技术架构
+
+### 架构图
+
+```mermaid
+graph TD
+    subgraph 初始化
+        A[用户: 开始聊书] --> B[collect_info]
+        B --> C[plan_themes]
+    end
+
+    subgraph 对话循环
+        C --> D[execute_theme]
+        D --> E[reflect]
+        E -->|继续当前主题| D
+        E -->|下一主题| D
+    end
+
+    subgraph 完成
+        E -->|所有主题完成| F[generate_notes]
+    end
+
+    B -.-> B1[RAG: 导入书籍]
+    C -.-> C1[LLM: 规划主题]
+    D -.-> D1[LLM: 主题问答]
+    E -.-> E1[LLM: 判断是否继续]
+    F -.-> F1[LLM: 生成笔记]
+```
+
+## 项目结构
 
 ```
 PostReading_Agent/
