@@ -135,7 +135,7 @@ def book_info_to_json(book_info: list) -> dict:
 
 def get_book_info(title: str) -> json:
     """根据标题获取书籍信息"""
-    from backend.app.config import WEREAD_COOKIE
+    from app.config import WEREAD_COOKIE
     cookies = parse_cookies(WEREAD_COOKIE)
     api = WeReadAPI(cookies)
     book_id = title_to_bookId(api, title)

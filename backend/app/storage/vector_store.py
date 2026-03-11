@@ -10,7 +10,7 @@ from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
-from backend.app.config import CHROMA_CONF
+from app.config import CHROMA_CONF
 
 
 

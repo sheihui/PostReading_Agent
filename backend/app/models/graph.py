@@ -1,5 +1,6 @@
 from cmath import pi
 from posthog import page
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, END
 from app.models.state import AgentState
 from app.models.nodes import (
@@ -48,7 +49,8 @@ graph.add_conditional_edges(
 graph.add_edge("generate_notes", END)
 
 
-agent_graph = graph.compile()
+agent_graph = graph.compile(checkpointer=MemorySaver())
+
 
 if __name__ == "__main__":
     pass

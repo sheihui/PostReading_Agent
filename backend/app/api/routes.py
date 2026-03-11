@@ -1,34 +1,53 @@
+# from asyncio import graph
 from fastapi import APIRouter
-from pydantic import BaseModel
-from app.models.graph import graph
+# from pydantic import BaseModel
+from app.models.graph import agent_graph
+
 
 router = APIRouter()
 
-class AgentRequest(BaseModel):
-    user_id: str
-    book_id: str
-    book_title: str
+# 存states
+conversation_state = {}
 
+@router.post("/chat")
+async def chat(request: dict):
+    user_id = request.get("user_id")
+    # book_id = request.get("book_id")
+    book_title = request.get("book_title")
+    message = request.get("message")
 
-@router.post("/agent/run")
-async def run_agent(request: AgentRequest):
-    initial_state = {
-        "user_id": request.user_id,
-        "book_id": request.book_id,
-        "book_title": request.book_title,
-        "book_intro": "",
-        "my_review": [],
-        "perspective": [],
-        "review": [],
-        "theme": [],
-        "current_theme_idx": 0,
-        "messages": [],
-        "insight": [],
-        "is_complete": False,
-        "final_note": ""
-    }
+    thread_id = f"{user_id}"
+    config = {"configurable": {"thread_id": thread_id}}
+
+    if thread_id not in conversation_state:
+        conversation_state[thread_id] = {
+            "user_id": user_id,
+            "book_id": "",
+            "book_title": book_title,
+            "book_intro": "",
+            "my_review": [],
+            "perspective": [],
+            "review": [],
+            "theme": [],
+            "current_theme_idx": 0,
+            "messages": [],
+            "insight": [],
+            "is_complete": False,
+            "final_note": ""
+        }
+
+    # 添加用户消息
+    state = conversation_state[thread_id]
+    state["messages"].append({"role": "user", "content": message})
+
+    # 调用graph（自动回复状态，继续执行）
+    from app.models.state import AgentState
+    result = agent_graph.invoke(AgentState(state), config)
+
+    # 保存状态
+    conversation_state[thread_id] = result
+
+    # 返回回复
+    assistant_message = result["messages"][-1]["content"]
+    return {"message": assistant_message, "is_complete": result.get("is_complete", False)}
     
-    result = graph.invoke(initial_state)
-    
-    # return {"status": "ok", "final_note": result.get("final_note")}
-    return {"status": "test ok"}

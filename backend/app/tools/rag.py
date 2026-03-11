@@ -7,7 +7,7 @@ from app.config import CHROMA_CONF, books_file_path
 
 
 @tool
-def rag_retrieve(query: str, collection: str="books") -> str:
+def rag_retrieve(query: str, collection: str="books", top_k: int=4) -> str:
     """
     RAG 检索
     Args:

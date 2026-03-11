@@ -1,226 +1,148 @@
-# 交互式读书笔记 Agent - 技术文档
+# PostReading Agent 📚
 
-## 一、产品逻辑
+一个 AI 读书助手，帮助你深度阅读和思考书籍内容。
 
-### 1.1 核心用户场景
+## 功能特性
+
+- **智能书籍解析**：自动获取书籍信息、核心观点、其他读者评价
+- **主题式讨论**：根据书籍内容规划讨论主题，引导深度思考
+- **多轮对话**：与 AI 进行持续对话，逐步深化理解
+- **笔记生成**：自动整理对话内容，生成结构化读书笔记
+
+## 技术架构
 
 ```
-用户：读完一本书，想深入讨论，生成笔记
-Agent：理解意图 → 收集信息 → 规划主题 → 对话引导 → 生成笔记
+PostReading_Agent/
+├── backend/                 # 后端服务
+│   ├── app/
+│   │   ├── api/            # API 路由
+│   │   ├── llm/           # LLM 客户端
+│   │   ├── models/        # 状态与节点定义
+│   │   ├── storage/       # 向量存储
+│   │   ├── tools/         # 工具函数（RAG、搜索）
+│   │   └── utils/         # 工具（微信读书 API）
+│   └── data/              # 数据存储
+│       ├── books/         # 书籍 JSON 文件
+│       ├── notes/         # 生成的笔记
+│       └── vector_db/     # 向量数据库
+└── frontend/              # 前端（Streamlit）
 ```
 
-### 1.2 产品流程图
+## 快速开始
 
-```
-用户说 "我想讨论《xx》"
+### 1. 安装依赖
 
-┌─────────────────────────────────────────────────────┐
-│  阶段一：信息收集（Act）                             │
-│  - 获取微信读书划线                                 │
-│  - 获取微信读书想法/笔记                            │
-│  - 搜索书籍框架 + 核心观点                          │
-│  - 搜索书评、他人想法                               │
-│  - 向量化存储（RAG）                                │
-└─────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────┐
-│  阶段二：规划主题（Plan）                           │
-│  - 分析：书籍核心问题 + 划线重点 + 用户阅读目的     │
-│  - 输出：主题列表 + 每个主题的问题                  │
-└─────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────┐
-│  阶段三：执行对话（Execute）                        │
-│  - 自主判断是否需要工具、调用什么工具               │
-│  - 提问 → 追问 → 关联 → 提取洞察                   │
-└─────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────┐
-│  阶段四：反思（Reflection）                         │
-│  - 检查：主题是否覆盖？深度够吗？                   │
-│  - 决策：继续 / 提示生成笔记 / 结束                 │
-│  - 产出：结构化读书笔记                             │
-└─────────────────────────────────────────────────────┘
+```bash
+cd backend
+pip install -r requirements.txt
 ```
 
-### 1.3 模式选择
+### 2. 启动后端
 
-- **Plan-and-Execute + ReAct + Reflection**
-- Plan 阶段：规划要聊的主题
-- Execute 阶段：ReAct 模式自主调用工具
-- Reflection 阶段：检查完成度，决定是否生成笔记
+```bash
+cd backend
+export PYTHONPATH=$(pwd):$PYTHONPATH
+uvicorn app.main:app --reload --port 8000
+```
 
----
+### 3. 启动前端
 
-## 二、工具列表
+```bash
+# 新终端
+cd frontend
+streamlit run streamlit_app.py
+```
 
-### 2.1 信息获取类
+### 4. 使用
 
-| 工具 | 功能 | 时机 |
-|------|------|------|
-| `get_wechat_highlights` | 获取微信读书划线 | 首次聊某本书 |
-| `get_wechat_notes` | 获取微信读书笔记/想法 | 首次聊某本书 |
-| `search_book_framework` | 搜索书籍框架+核心观点 | 首次聊某本书 |
-| `search_book_reviews` | 搜索书评、他人想法 | 首次聊某本书 |
+1. 打开浏览器 `http://localhost:8501`
+2. 侧边栏填写用户 ID 和书名
+3. 开始与 AI 讨论书籍
 
-### 2.2 检索类
+## API 接口
 
-| 工具 | 功能 | 触发条件 |
-|------|------|----------|
-| `rag_retrieve` | RAG 检索划线内容 | 需要补充背景时 |
-| `search_concept` | 搜索专业概念（Agent 不懂时） | 遇到模糊概念时 |
+### POST /api/chat
 
-### 2.3 记忆类
+与 AI 进行对话
 
-| 工具 | 功能 |
-|------|------|
-| `save_insight` | 存用户洞察（长期记忆） |
-| `get_user_insights` | 查用户历史洞察 |
-| `save_concept` | 存搜索的概念解释 |
+```bash
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user123",
+    "book_title": "思考，快与慢",
+    "message": "我想开始聊这本书"
+  }'
+```
 
-### 2.4 产出类
+响应：
+```json
+{
+  "message": "你好！我想和你聊聊《思考，快与慢》..."
+}
+```
 
-| 工具 | 功能 |
-|------|------|
-| `generate_notes` | 整合对话+RAG+记忆，生成笔记 |
+## 核心模块说明
 
----
-
-## 三、数据存储
-
-### 3.1 RAG（向量库）
-
-| 数据 | 存储 |
-|------|------|
-| 划线内容 | Chroma 向量库 |
-| 书籍框架 | Chroma 向量库 |
-| 生成的笔记 | Chroma 向量库 + 文件 |
-
-### 3.2 长期记忆
-
-| 数据 | 存储 |
-|------|------|
-| 用户洞察 | SQLite / JSON |
-| 概念解释 | SQLite / JSON |
-| 用户偏好 | SQLite / JSON |
-
----
-
-## 四、技术架构（LangGraph）
-
-### 4.1 状态定义
+### 1. 状态管理 (app/models/state.py)
 
 ```python
-class AgentState(TypedDict):
-    # 用户信息
-    user_id: str
-    book_title: str
-    
-    # 信息收集阶段
-    highlights: list[str]
-    notes: list[str]
-    framework: dict
-    reviews: list[str]
-    
-    # Plan 阶段
-    themes: list[dict]  # [{"topic": "...", "questions": [...]}]
-    current_theme_idx: int
-    
-    # Execute 阶段
-    messages: list[dict]
-    current_insights: list[str]
-    
-    # Reflection 阶段
-    is_complete: bool
-    notes: str
+AgentState:
+  - user_id, book_id, book_title      # 基础信息
+  - book_intro                        # 书籍简介
+  - perspective                       # 核心观点
+  - review                            # 读者评价
+  - theme                             # 讨论主题
+  - messages                          # 对话历史
+  - insight                           # 用户的洞察
+  - is_complete                       # 是否完成
+  - final_note                        # 最终笔记
 ```
 
-### 4.2 节点设计
+### 2. 节点流程 (app/models/nodes.py)
 
-```
-                              ┌──────────────┐
-                              │   start      │
-                              └──────┬───────┘
-                                     │
-                                     ▼
-                         ┌─────────────────────┐
-                         │  collect_info       │ ← 获取划线+框架+书评
-                         │  (Act)              │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │  plan_themes        │ ← 规划主题
-                         │  (Plan)             │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                     ┌──────────────┴──────────────┐
-                     │                               │
-                     ▼                               ▼
-           ┌─────────────────┐            ┌─────────────────┐
-           │  execute_theme  │  ←───────→ │  reflect        │
-           │  (Execute)      │  _loop     │  (Reflection)   │
-           └────────┬────────┘            └────────┬────────┘
-                    │                               │
-                    │        ┌─────────────────┐   │
-                    └───────→│  generate_notes │←──┘
-                             │  (Output)       │
-                             └─────────────────┘
+- **collect_info**：获取书籍信息，初始化 RAG
+- **plan_themes**：规划讨论主题
+- **execute_theme**：执行主题讨论
+- **reflect**：反思，决定是否继续
+- **generate_notes**：生成读书笔记
+
+### 3. 工具 (app/tools/)
+
+- **rag.py**：向量检索增强（RAG）
+- **search.py**：网络搜索（获取书籍观点）
+
+## 环境变量
+
+在 `backend/` 目录下创建 `.env` 文件：
+
+```bash
+# LLM 配置
+DASHSCOPE_API_KEY=your_api_key
+
+# 其他配置...
 ```
 
-### 4.3 边（Edges）
+## 技术栈
 
-| 边 | 条件 |
-|----|------|
-| `collect_info` → `plan_themes` | 总是 |
-| `plan_themes` → `execute_theme` | 总是 |
-| `execute_theme` → `reflect` | 每次对话后 |
-| `reflect` → `execute_theme` | 主题未完成 |
-| `reflect` → `generate_notes` | 主题完成 或 用户说"好了" |
+- **后端**：FastAPI + LangGraph
+- **LLM**：DashScope (MiniMax-M2.5)
+- **向量库**：Chroma
+- **前端**：Streamlit
+- **数据**：JSON 文件存储
 
----
+## 版本
 
-## 五、技术栈
+- **v1.0.0**：基础功能版本，支持多轮对话和笔记生成
 
-| 组件 | 技术 |
-|------|------|
-| LLM | 阿里云百炼（MiniMax-M2.5） |
-| Agent 框架 | LangGraph |
-| 向量库 | Chroma |
-| 搜索 | Tavily API |
-| 数据存储 | SQLite / JSON |
-| 后端 | FastAPI / Streamlit |
-| 微信读书 | Cookie 模拟请求 |
+## 未来计划
 
----
+- [ ] 用户认证
+- [ ] 对话历史持久化
+- [ ] Flutter 前端
+- [ ] 多书籍管理
+- [ ] 分享功能
 
-## 六、开发计划
+## License
 
-### 阶段一：项目骨架
-- [ ] 目录结构
-- [ ] 环境配置
-
-### 阶段二：工具实现
-- [ ] 微信读书 API 封装
-- [ ] Tavily 搜索封装
-- [ ] RAG 检索
-- [ ] 长期记忆
-
-### 阶段三：Agent 核心
-- [ ] 状态定义
-- [ ] 节点实现
-- [ ] 边逻辑
-
-### 阶段四：集成
-- [ ] 对话界面
-- [ ] 笔记生成
-
----
-
-## 七、参考项目
-
-- https://github.com/datawhalechina/hello-agents/tree/main/code/chapter13/helloagents-trip-planner
+MIT
