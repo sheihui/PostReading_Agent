@@ -1,179 +1,152 @@
-# PostReading Agent 📚
+  # 📚 PostReading Agent (AI 读书助手)
 
-本项目基于 **LangGraph** 实现 **Plan-and-Execute + Reflection** 双范式，支持用户个人问题驱动的交互式读书笔记生成。
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)[![Framework: FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)[![Frontend: Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://streamlit.io/)
 
-一个 AI 读书助手，帮助你深度阅读和思考书籍内容。
+> **PostReading Agent** 是一个专为“读书后讨论与笔记生成”设计的 AI 智能体。它基于 **LangGraph** 框架，采用 `Plan-and-Execute + Reflection` 双范式，通过引导式的多轮对话，帮助你深度消化书籍内容，并自动沉淀结构化的读书笔记。
 
-## 功能特性
+## ✨ 核心特性
 
-- **智能书籍解析**：自动获取用户阅读痕迹（微读的划线、想法）以及核心观点、高赞书评
-- **主题式讨论**：根据书籍内容规划讨论主题，引导深度思考
-- **多轮对话**：与 AI 进行持续对话，逐步深化理解
-- **笔记生成**：自动整理对话内容，生成结构化读书笔记
+- **🧠 智能书籍解析与 RAG**：自动结合用户阅读痕迹（如微信读书的划线、想法）、书籍核心观点与高赞书评，构建专属知识库。
+- **🗺️ 主题式启发讨论**：根据书籍内容动态规划讨论主题（Plan），循序渐进地引导用户进行深度思考。
+- **💬 沉浸式多轮对话**：执行讨论（Execute）并具备反思能力（Reflection），AI 会根据你的回答决定是深入当前话题，还是推进到下一主题。
+- **📝 全自动笔记生成**：讨论结束后，自动提炼多轮对话中的思想火花，生成结构化、富有洞察的专属读书笔记。
 
-## 技术架构
+## 🏗️ 技术架构
 
-### 架构图
+本项目采用前后端分离架构，核心逻辑由 LangGraph 驱动：
 
 ```mermaid
 graph TD
-    subgraph 初始化
-        A[用户: 开始聊书] --> B[collect_info]
-        B --> C[plan_themes]
+    subgraph 初始化阶段
+        A[用户: 开启读书讨论] --> B[collect_info: 收集/检索书籍信息]
+        B --> C[plan_themes: 规划讨论主题]
     end
 
-    subgraph 对话循环
-        C --> D[execute_theme]
-        D --> E[reflect]
-        E -->|继续当前主题| D
-        E -->|下一主题| D
+    subgraph 对话与反思循环
+        C --> D[execute_theme: 执行当前主题探讨]
+        D --> E[reflect: 反思用户输入]
+        E -->|需深入/继续当前主题| D
+        E -->|已充分/进入下一主题| D
     end
 
-    subgraph 完成
-        E -->|所有主题完成| F[generate_notes]
+    subgraph 总结阶段
+        E -->|所有主题讨论完毕| F[generate_notes: 提炼并生成读书笔记]
     end
 
-    B -.-> B1[RAG: 导入书籍]
-    C -.-> C1[LLM: 规划主题]
-    D -.-> D1[LLM: 主题问答]
-    E -.-> E1[LLM: 判断是否继续]
-    F -.-> F1[LLM: 生成笔记]
-```
+    B -.->|RAG 检索| B1[(向量数据库)]
+    C -.-> C1((LLM: 提纲规划))
+    D -.-> D1((LLM: 启发式问答))
+    E -.-> E1((LLM: 意图识别与状态流转))
+    F -.-> F1((LLM: 总结归纳))
+````
 
-## 项目结构
+## 📁 项目目录结构
+
+Plaintext
 
 ```
 PostReading_Agent/
-├── backend/                 # 后端服务
+├── backend/                 # 核心后端服务 (FastAPI)
 │   ├── app/
-│   │   ├── api/            # API 路由
-│   │   ├── llm/           # LLM 客户端
-│   │   ├── models/        # 状态与节点定义
-│   │   ├── storage/       # 向量存储
-│   │   ├── tools/         # 工具函数（RAG、搜索）
-│   │   └── utils/         # 工具（微信读书 API）
-│   └── data/              # 数据存储
-│       ├── books/         # 书籍 JSON 文件
-│       ├── notes/         # 生成的笔记
-│       └── vector_db/     # 向量数据库
-└── frontend/              # 前端（Streamlit）
+│   │   ├── api/             # RESTful API 路由
+│   │   ├── llm/             # LLM 模型接口封装
+│   │   ├── models/          # LangGraph 状态图与节点定义
+│   │   ├── storage/         # 向量数据库集成 (Chroma)
+│   │   ├── tools/           # 外部工具 (RAG 检索、网络搜索等)
+│   │   └── utils/           # 辅助工具 (如微信读书 API 适配)
+│   └── data/                # 本地数据存储
+│       ├── books/           # 书籍基础元数据 (JSON)
+│       ├── notes/           # 最终生成的读书笔记
+│       └── vector_db/       # Chroma 向量数据持久化目录
+└── frontend/                # 交互前端 (Streamlit)
+    └── streamlit_app.py     # 前端主入口
 ```
 
-## 快速开始
+## 🚀 快速开始
 
-### 1. 安装依赖
+## 1. 环境准备
 
-```bash
+确保你已安装 Python 3.8+。克隆本项目到本地：
+
+Bash
+
+```
+git clone [https://github.com/sheihui/PostReading_Agent.git](https://github.com/sheihui/PostReading_Agent.git)
+cd PostReading_Agent
+```
+
+## 2. 配置环境变量
+
+在 `backend/` 目录下创建 `.env` 文件，并填入你的大模型 API 密钥（目前默认支持基于 DashScope 或兼容接口的模型）：
+
+代码段
+
+```
+# LLM 鉴权配置
+DASHSCOPE_API_KEY=your_api_key_here
+# 可选：其他 API Keys 或配置
+```
+
+## 3. 启动后端服务
+
+Bash
+
+```
 cd backend
 pip install -r requirements.txt
-```
-
-### 2. 启动后端
-
-```bash
-cd backend
+# 将当前目录加入环境变量以确保包导入正常
 export PYTHONPATH=$(pwd):$PYTHONPATH
+# 启动 FastAPI 服务
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. 启动前端
+## 4. 启动前端页面
 
-```bash
-# 新终端
+打开一个新的终端窗口：
+
+Bash
+
+```
 cd frontend
+pip install -r requirements.txt # (如果有单独的前端依赖)
 streamlit run streamlit_app.py
 ```
 
-### 4. 使用
+访问 `http://localhost:8501`，在侧边栏输入你的用户 ID 和书名，即可开始与 AI 的思想碰撞！
 
-1. 打开浏览器 `http://localhost:8501`
-2. 侧边栏填写用户 ID 和书名
-3. 开始与 AI 讨论书籍
+## 接口文档 (API Reference)
 
-## API 接口
+后端启动后，你可以访问 `http://localhost:8000/docs` 查看完整的 Swagger 交互式 API 文档。
 
-### POST /api/chat
+**核心接口示例：** `POST /api/chat` - 发送消息并推进讨论状态
 
-与 AI 进行对话
+Bash
 
-```bash
+```
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "user123",
     "book_title": "思考，快与慢",
-    "message": "我想开始聊这本书"
+    "message": "我准备好开始聊这本书了"
   }'
 ```
 
-响应：
-```json
-{
-  "message": "你好！我想和你聊聊《思考，快与慢》..."
-}
-```
+## 🛠️ 技术栈
 
-## 核心模块说明
+- **Agent 框架**: [LangGraph](https://python.langchain.com/docs/langgraph)
+    
+- **后端服务**: [FastAPI](https://fastapi.tiangolo.com/)
+    
+- **前端交互**: [Streamlit](https://streamlit.io/)
+    
+- **向量数据库**: [ChromaDB](https://www.trychroma.com/)
+    
+- **大语言模型**: DashScope (如 MiniMax-M2.5 或其他兼容模型)
+    
 
-### 1. 状态管理 (app/models/state.py)
+    
 
-```python
-AgentState:
-  - user_id, book_id, book_title      # 基础信息
-  - book_intro                        # 书籍简介
-  - perspective                       # 核心观点
-  - review                            # 读者评价
-  - theme                             # 讨论主题
-  - messages                          # 对话历史
-  - insight                           # 用户的洞察
-  - is_complete                       # 是否完成
-  - final_note                        # 最终笔记
-```
+## 📄 许可证
 
-### 2. 节点流程 (app/models/nodes.py)
-
-- **collect_info**：获取书籍信息，初始化 RAG
-- **plan_themes**：规划讨论主题
-- **execute_theme**：执行主题讨论
-- **reflect**：反思，决定是否继续
-- **generate_notes**：生成读书笔记
-
-### 3. 工具 (app/tools/)
-
-- **rag.py**：向量检索增强（RAG）
-- **search.py**：网络搜索（获取书籍观点）
-
-## 环境变量
-
-在 `backend/` 目录下创建 `.env` 文件：
-
-```bash
-# LLM 配置
-DASHSCOPE_API_KEY=your_api_key
-
-# 其他配置...
-```
-
-## 技术栈
-
-- **后端**：FastAPI + LangGraph
-- **LLM**：DashScope (MiniMax-M2.5)
-- **向量库**：Chroma
-- **前端**：Streamlit
-- **数据**：JSON 文件存储
-
-## 版本
-
-- **v1.0.0**：基础功能版本，支持多轮对话和笔记生成
-
-## 未来计划
-
-- [ ] 用户认证
-- [ ] 对话历史持久化
-- [ ] Flutter 前端
-- [ ] 多书籍管理
-- [ ] 分享功能
-
-## License
-
-MIT
+本项目基于 [MIT License](https://www-d-google-d-com-s-gmn.v.tuangouai.com/search?q=LICENSE) 开源。
