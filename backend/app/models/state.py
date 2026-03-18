@@ -24,4 +24,7 @@ class AgentState(TypedDict):
     # Reflect
     is_complete: bool                       # 是否完成
     final_note: str                         # 最终笔记
+    next: str                               # 下一个节点
+
+    is_complete: bool                       # 是否完成
 

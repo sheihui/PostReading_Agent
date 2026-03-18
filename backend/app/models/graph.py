@@ -9,6 +9,7 @@ from app.models.nodes import (
     execute_theme,
     reflect,
     generate_notes,
+    wait_for_user,
 )
 
 graph = StateGraph(AgentState)
@@ -20,28 +21,40 @@ graph.add_node("plan_themes", plan_themes)
 graph.add_node("execute_theme", execute_theme)
 graph.add_node("reflect", reflect)
 graph.add_node("generate_notes", generate_notes)
+graph.add_node("wait_for_user", wait_for_user)
+
 
 
 # 添加边
 graph.add_edge("__start__", "collect_info")
 graph.add_edge("collect_info", "plan_themes")
 graph.add_edge("plan_themes", "execute_theme")
+graph.add_edge("execute_theme", END)
+graph.add_edge("wait_for_user", "reflect")
 
 
 
-
-# 条件边
 def should_continue(state: AgentState) -> str:
-    if state.get("is_complete", False):
+    next_step = state.get("next", "execute_theme")
+    
+    if next_step == "generate_notes":
         return "generate_notes"
-    return "execute_theme"
+    elif next_step == "plan_themes":
+        return "plan_themes"
+    elif next_step == "next_theme":
+        return "execute_theme"  
+    else:
+        return "execute_theme" 
 
-# 条件边：reflect → 回到 execute_theme 或 generate_notes
+
+# 条件边：reflect → 回到 execute_theme 或 plan_themes 或 generate_notes
 graph.add_conditional_edges(
     "reflect",
     should_continue,
     {
-        "execute_theme": "execute_theme",
+        "continue": "execute_theme", 
+        "execute_theme": "execute_theme", 
+        "plan_themes": "plan_themes",
         "generate_notes": "generate_notes",
     },
 )

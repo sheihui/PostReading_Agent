@@ -135,21 +135,26 @@ def book_info_to_json(book_info: list) -> dict:
 
 def get_book_info(title: str) -> json:
     """根据标题获取书籍信息"""
+    import os
+    if os.path.exists(f"data/books/{title}.json"):
+        print(f"书籍信息已存在: data/books/{title}.json")
+        return json.load(open(f"data/books/{title}.json", 'r', encoding='utf-8')), True
+
     from app.config import WEREAD_COOKIE
     cookies = parse_cookies(WEREAD_COOKIE)
     api = WeReadAPI(cookies)
     book_id = title_to_bookId(api, title)
     if not book_id:
         print(f"获取书籍 ID 失败: {title}")
-        return None
+        return None, False
     
     book_info = load_book_info(api, book_id)
     book_info_json = book_info_to_json(book_info)
     if not book_info_json:
         print(f"获取书籍信息失败: {title}")
-        return None
+        return None, False
     
-    return book_info_json
+    return book_info_json, False
 
 
 def save_json_file(book_info_json: json, title: str) -> None:
