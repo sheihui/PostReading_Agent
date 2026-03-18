@@ -1,6 +1,9 @@
   # 📚 PostReading Agent (AI 读书助手)
+<div align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)[![Framework: FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)[![Frontend: Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/) [![Framework: FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/) [![Frontend: Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://streamlit.io/)
+
+</div>
 
 > **PostReading Agent** 是一个专为“读书后讨论与笔记生成”设计的 AI 智能体。它基于 **LangGraph** 框架，采用 `Plan-and-Execute + Reflection` 双范式，通过引导式的多轮对话，帮助你深度消化书籍内容，并自动沉淀结构化的读书笔记。
 
