@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PostReading Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #faf9f6;
+    --surface:   #ffffff;
+    --border:    #e8e5df;
+    --text:      #555;
+    --text2:     #8a857c;
+    --text3:     #b5b0a8;
+    --accent:    #b8754a;
+    --accent2:   #d4956b;
+    --panel-bg:  #f7f5f1;
+    --user-bg:   #f5f2ed;
+    --radius-sm: 6px;
+    --radius:    10px;
+    --font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: url("image/Seine.jpg") center/cover fixed;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 5vh 0;
+  }
+
+  /* ============ LOGIN SCREEN ============ */
+  .login-screen {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .login-screen.hidden { display: none; }
+
+  .login-card {
+    width: 360px; max-width: 90vw;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 20px;
+    padding: 40px 36px;
+    backdrop-filter: blur(10px);
+  }
+  .login-card h1 {
+    font-family: var(--font-serif);
+    font-size: 28px; font-weight: 600; letter-spacing: .5px;
+    margin-bottom: 8px; line-height: 1.3;
+  }
+  .brand-accent { color: var(--accent); }
+  .login-card .subtitle {
+    font-size: 14px; color: var(--text2);
+    margin-bottom: 36px; line-height: 1.6;
+  }
+  .login-card .field {
+    text-align: left; margin-bottom: 16px;
+  }
+  .login-card label {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; font-weight: 500; color: var(--text2);
+    letter-spacing: .5px;
+    margin-bottom: 6px;
+  }
+  .login-card label a {
+    font-size: 12px; color: var(--accent); text-decoration: none;
+    font-weight: 400; text-transform: none; letter-spacing: 0;
+  }
+  .login-card label a:hover { text-decoration: underline; }
+  .login-card input {
+    width: 100%; padding: 12px 14px;
+    background: rgba(255,255,255,0.55); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 14px; font-family: monospace; color: var(--text);
+    outline: none; transition: border-color .2s;
+  }
+  .login-card input:focus { border-color: var(--accent2); }
+  .login-card input::placeholder { font-family: -apple-system, sans-serif; color: var(--text3); font-size: 13px; }
+  .login-card .btn-login {
+    width: 100%; padding: 12px 0; margin-top: 8px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 15px; font-weight: 500;
+    cursor: pointer; transition: background .15s;
+  }
+  .login-card .btn-login:hover { background: #a5683e; }
+  .login-card .btn-login:disabled { background: #d5d0c7; cursor: not-allowed; }
+  .btn-brand { color: #fde8d0; }
+  .login-card .error {
+    color: #c44; font-size: 12px; margin-top: 8px; display: none;
+  }
+  .login-card .error.visible { display: block; }
+
+  /* ============ MAIN APP ============ */
+  .app-screen {
+    width: 100%; max-width: 960px;
+    height: 90vh; margin: 0 auto;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    overflow: hidden;
+    position: relative; z-index: 1;
+    border-radius: 16px;
+  }
+  .app-screen.hidden { display: none; }
+  @media (max-width: 720px) {
+    .app-screen { grid-template-columns: 1fr; }
+    .panel { display: none; }
+  }
+
+  /* Panel */
+  .panel {
+    background: rgba(247, 245, 241, 0.95);
+    border-right: 1px solid var(--border);
+    padding: 28px 24px;
+    display: flex; flex-direction: column; gap: 20px;
+    overflow: hidden;
+  }
+  .panel .brand {
+    display: flex; align-items: center;
+  }
+  .brand h1 {
+    font-family: var(--font-serif);
+    font-size: 16px; font-weight: 600; letter-spacing: .3px;
+  }
+
+  .panel-section h3 {
+    font-size: 10px; font-weight: 500; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .setup-fields { display: flex; flex-direction: column; gap: 8px; }
+  .setup-fields label {
+    font-size: 10px; font-weight: 500; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .setup-fields input {
+    width: 100%; padding: 8px 12px;
+    background: rgba(255,255,255,0.55); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 13px; color: var(--text); outline: none; transition: border-color .2s;
+  }
+  .setup-fields input:focus { border-color: var(--accent2); }
+  .setup-fields input::placeholder { color: var(--text3); }
+  .setup-fields button {
+    width: 100%; padding: 8px 0; margin-top: 4px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s;
+  }
+  .setup-fields button:hover { background: #a5683e; }
+
+  .setup-fields .logout-link {
+    text-align: center; font-size: 12px; color: var(--text3);
+    cursor: pointer; margin-top: 2px; transition: color .15s;
+  }
+  .setup-fields .logout-link:hover { color: var(--text2); }
+
+  .book-title-display {
+    font-family: var(--font-serif);
+    font-size: 18px; font-weight: 600;
+    display: none;
+  }
+  .book-title-display.visible { display: block; }
+
+  .theme-badge {
+    display: none; padding: 5px 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; font-size: 12px; color: var(--accent); font-weight: 500;
+  }
+  .theme-badge.visible { display: inline-block; }
+
+  .topic-empty {
+    font-size: 12px; color: var(--text3);
+  }
+  .topic-item {
+    margin-bottom: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    animation: fadeIn .35s ease-out;
+  }
+  .topic-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px;
+    background: var(--surface);
+    cursor: pointer; user-select: none;
+    font-family: var(--font-serif);
+    font-size: 12.5px; line-height: 1.4;
+    transition: background .15s;
+  }
+  .topic-header:hover { background: var(--bg); }
+  .topic-header .chevron {
+    font-size: 10px; color: var(--text3);
+    transition: transform .2s;
+  }
+  .topic-item.open .topic-header .chevron {
+    transform: rotate(180deg);
+  }
+  .topic-body {
+    max-height: 0; overflow: hidden;
+    transition: max-height .3s ease;
+    font-family: var(--font-serif);
+    font-size: 12px; line-height: 1.6;
+    color: var(--text2);
+    padding: 0 10px;
+  }
+  .topic-item.open .topic-body {
+    max-height: 200px;
+    padding: 0 10px 8px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Chat */
+  .main {
+    display: flex; flex-direction: column;
+    background: rgba(255, 255, 255, 0.95);
+    overflow: hidden;
+  }
+  .chat {
+    flex: 1; overflow-y: auto;
+    padding: 28px 32px 24px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 8px;
+  }
+  .empty-state p { font-size: 16px; color: var(--text3); max-width: 300px; text-align: center; line-height: 1.6; }
+
+  .msg-row {
+    display: flex; flex-direction: column; max-width: 88%;
+    animation: fadeIn .4s ease-out;
+  }
+  .msg-row.user { align-self: flex-end; align-items: flex-end; }
+  .msg-row.assistant { align-self: flex-start; align-items: flex-start; }
+  .msg-label {
+    font-size: 10px; font-weight: 500; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px;
+  }
+  .msg-text {
+    font-size: 14.5px; line-height: 1.75;
+    font-family: var(--font-serif);
+  }
+  .msg-row.user .msg-text {
+    background: var(--user-bg);
+    border: 1px solid #e8e5df;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+  }
+  .msg-text p { margin: 10px 0; }
+  .msg-text p:first-child { margin-top: 0; }
+  .msg-text p:last-child { margin-bottom: 0; }
+  .msg-text strong { font-weight: 600; color: #444; }
+  .msg-text ol, .msg-text ul { margin: 8px 0; padding-left: 20px; }
+  .msg-text li { margin: 4px 0; }
+
+  .thinking-row { padding: 4px 0; }
+  .dots { display: flex; gap: 4px; }
+  .dots span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--text3);
+    animation: dotPulse 1.4s infinite ease-in-out both;
+  }
+  .dots span:nth-child(2) { animation-delay: .16s; }
+  .dots span:nth-child(3) { animation-delay: .32s; }
+  @keyframes dotPulse { 0%,80%,100% { transform: scale(.5); opacity:.2 } 40% { transform: scale(1); opacity:.7 } }
+
+  .done-banner {
+    text-align: center; padding: 10px 14px; margin-top: 4px;
+    font-size: 12px; color: var(--accent); font-weight: 500;
+    background: linear-gradient(135deg, #faf5f0, #f5ede4);
+    border: 1px solid #e8d5c4; border-radius: var(--radius-sm);
+    font-family: var(--font-serif);
+  }
+
+  /* Input */
+  .input-area { padding: 0 32px 28px; }
+  .input-wrap {
+    display: flex; gap: 8px; align-items: center;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 6px 6px 6px 16px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .input-wrap:focus-within { border-color: var(--accent2); box-shadow: 0 0 0 3px #d4956b15; }
+  .input-wrap textarea {
+    flex: 1; border: none; background: transparent;
+    font-size: 14px; color: var(--text); outline: none;
+    resize: none; padding: 8px 0; max-height: 100px;
+  }
+  .input-wrap textarea::placeholder { color: var(--text3); }
+  .input-wrap textarea:disabled { opacity: .4; }
+  .send-btn {
+    width: 34px; height: 34px; min-width: 34px;
+    border: none; border-radius: var(--radius-sm);
+    background: var(--accent); color: #fff;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .send-btn:hover { background: #a5683e; }
+  .send-btn:disabled { background: #d5d0c7; cursor: not-allowed; }
+  .send-btn svg { width: 14px; height: 14px; }
+
+  @media (max-width: 720px) {
+    .chat { padding: 16px 20px 20px; }
+    .input-area { padding: 0 20px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== LOGIN SCREEN ==================== -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <h1><span class="brand-accent">Post</span>Reading<br>Agent</h1>
+    <p class="subtitle">读完一本书，和 AI 来一场有深度的对话。<br>连接你的微信读书数据，让思考不止于划线。</p>
+    <div class="field">
+      <label>
+        微信读书 Key
+        <a href="https://weread.qq.com/r/weread-skills" target="_blank">获取</a>
+      </label>
+      <input id="loginApiKey" type="password" placeholder="粘贴微信读书 API Key…" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>
+        百炼 API Key（DashScope）
+        <a href="https://bailian.console.aliyun.com/" target="_blank">获取</a>
+      </label>
+      <input id="loginLlmKey" type="password" placeholder="粘贴百炼 API Key…" autocomplete="off">
+    </div>
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">进入 <span class="btn-brand">Post</span>Reading</button>
+    <div class="error" id="loginError">请填写所有 API Key</div>
+  </div>
+</div>
+
+<!-- ==================== MAIN APP ==================== -->
+<div class="app-screen hidden" id="appScreen">
+
+  <!-- Left Panel -->
+  <aside class="panel">
+    <div class="brand">
+      <h1><span class="brand-accent">Post</span>Reading Agent</h1>
+    </div>
+
+    <div class="panel-section" id="setupSection">
+      <h3>开始阅读讨论</h3>
+      <div class="setup-fields">
+        <label>书名</label>
+        <input id="bookTitle" placeholder="输入书名…" autocomplete="off">
+        <button onclick="startSession()">开始会话</button>
+      </div>
+    </div>
+
+    <div class="panel-section" id="sessionInfo" style="display:none;">
+      <h3>正在讨论</h3>
+      <div class="book-title-display" id="bookTitleDisplay"></div>
+    </div>
+
+    <div class="panel-section">
+      <h3>当前主题</h3>
+      <span class="theme-badge" id="themeBadge"></span>
+      <span id="noTheme" style="font-size:12px;color:var(--text3);">尚未开始</span>
+    </div>
+
+    <div class="panel-section" style="flex:1;overflow-y:auto;">
+      <h3>已讨论主题</h3>
+      <div id="topicSummaryList">
+        <div class="topic-empty">尚未讨论任何主题</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right: Chat -->
+  <main class="main">
+    <div id="chatBox" class="chat">
+      <div class="empty-state">
+        <p>输入书名，开始一场深度阅读对话</p>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea id="userInput" rows="1" placeholder="写下你的想法…" disabled></textarea>
+        <button id="sendBtn" class="send-btn" onclick="sendMessage()" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const API = "http://localhost:8000/api/chat";
+
+let apiKey = "";
+let llmApiKey = "";
+let messages = [];
+let isComplete = false;
+let sessionActive = false;
+let topicSummaries = {};
+let currentTheme = null;
+
+// ====== LOGIN ======
+const savedApiKey = localStorage.getItem("pra_api_key");
+const savedLlmKey = localStorage.getItem("pra_llm_key");
+
+function doLogin() {
+  const key = document.getElementById("loginApiKey").value.trim();
+  const llmKey = document.getElementById("loginLlmKey").value.trim();
+
+  if (!key || !llmKey) {
+    document.getElementById("loginError").classList.add("visible");
+    document.getElementById("loginError").textContent = "请填写微信读书 Key 和百炼 API Key";
+    return;
+  }
+  document.getElementById("loginError").classList.remove("visible");
+
+  apiKey = key;
+  llmApiKey = llmKey;
+  localStorage.setItem("pra_api_key", key);
+  localStorage.setItem("pra_llm_key", llmKey);
+
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("appScreen").classList.remove("hidden");
+}
+
+// Pre-fill if keys saved
+if (savedApiKey) document.getElementById("loginApiKey").value = savedApiKey;
+if (savedLlmKey) document.getElementById("loginLlmKey").value = savedLlmKey;
+
+// Enter to login
+document.getElementById("loginApiKey").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") doLogin();
+});
+
+// ====== HELPERS ======
+function _(id) { return document.getElementById(id); }
+function setInputs(on) { _("userInput").disabled = !on; _("sendBtn").disabled = !on; }
+function scrollDown() { const box = _("chatBox"); box.scrollTop = box.scrollHeight; }
+function md(text) {
+  return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+}
+
+function render() {
+  const box = _("chatBox");
+  box.innerHTML = "";
+
+  if (messages.length === 0) {
+    box.innerHTML = `<div class="empty-state">
+      <p>${sessionActive ? '开始聊聊这本书吧' : '输入书名，开始一场深度阅读对话'}</p>
+    </div>`;
+    return;
+  }
+
+  messages.forEach(m => {
+    const row = document.createElement("div");
+    row.className = "msg-row " + m.role;
+    const label = document.createElement("div");
+    label.className = "msg-label";
+    label.innerHTML = m.role === "user" ? "你" : '<span class="brand-accent">Post</span>Reading';
+    row.appendChild(label);
+    const text = document.createElement("div");
+    text.className = "msg-text";
+    text.innerHTML = "<p>" + md(m.content) + "</p>";
+    row.appendChild(text);
+    box.appendChild(row);
+  });
+
+  if (isComplete) {
+    const b = document.createElement("div");
+    b.className = "done-banner";
+    b.textContent = "讨论已完成";
+    box.appendChild(b);
+  }
+  updatePanel();
+  scrollDown();
+}
+
+function updatePanel() {
+  if (currentTheme) {
+    _("noTheme").style.display = "none";
+    _("themeBadge").classList.add("visible");
+    _("themeBadge").textContent = currentTheme.topic || currentTheme;
+  }
+  const container = _("topicSummaryList");
+  const topics = Object.entries(topicSummaries);
+  if (topics.length === 0) {
+    container.innerHTML = '<div class="topic-empty">尚未讨论任何主题</div>';
+    return;
+  }
+  container.innerHTML = "";
+  topics.forEach(([topic, summary]) => {
+    const item = document.createElement("div");
+    item.className = "topic-item";
+    item.innerHTML = `
+      <div class="topic-header" onclick="this.parentElement.classList.toggle('open')">
+        <span>${topic}</span>
+        <span class="chevron">&#9660;</span>
+      </div>
+      <div class="topic-body">${summary}</div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function addMsg(role, content) { messages.push({ role, content }); render(); }
+
+// ====== SESSION ======
+function startSession() {
+  const title = _("bookTitle").value.trim();
+  if (!title) return alert("请填写书名");
+
+  messages = []; isComplete = false; sessionActive = true;
+  topicSummaries = {}; currentTheme = null;
+  _("setupSection").style.display = "none";
+  _("sessionInfo").style.display = "";
+  _("bookTitleDisplay").textContent = title;
+  _("bookTitleDisplay").classList.add("visible");
+  _("noTheme").style.display = "none";
+  _("themeBadge").classList.add("visible");
+  _("themeBadge").textContent = "准备中…";
+  _("topicSummaryList").innerHTML = '<div class="topic-empty">尚未讨论任何主题</div>';
+  setInputs(true);
+  _("userInput").placeholder = "写下你的想法…";
+  render();
+  sendMessage();
+}
+
+// ====== SEND ======
+async function sendMessage() {
+  const title = _("bookTitle").value.trim();
+  const el = _("userInput");
+  const text = el.value.trim();
+  const isOpening = (text === "" && messages.length === 0);
+  if (!title || (!text && !isOpening) || isComplete) return;
+
+  const sendText = isOpening ? "你好" : text;
+  if (!isOpening) addMsg("user", text);
+  el.value = ""; el.style.height = "auto";
+  setInputs(false);
+
+  const thinker = document.createElement("div");
+  thinker.className = "msg-row assistant thinking-row";
+  thinker.id = "thinking-msg";
+  thinker.innerHTML = '<div class="msg-label"><span class="brand-accent">Post</span>Reading</div><div class="dots"><span></span><span></span><span></span></div>';
+  _("chatBox").appendChild(thinker);
+  scrollDown();
+
+  try {
+    const resp = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: "user", book_title: title, message: sendText, api_key: apiKey, llm_api_key: llmApiKey }),
+    });
+    const data = await resp.json();
+    const t = _("thinking-msg"); if (t) t.remove();
+    addMsg("assistant", data.message);
+    if (data.current_theme) currentTheme = data.current_theme;
+    if (data.topic_summaries && Object.keys(data.topic_summaries).length > 0) {
+      topicSummaries = data.topic_summaries;
+    }
+    updatePanel();
+    if (data.is_complete) { isComplete = true; _("userInput").placeholder = "讨论已结束"; setInputs(false); render(); }
+  } catch (e) {
+    const t = _("thinking-msg"); if (t) t.remove();
+    addMsg("assistant", "请求失败: " + e.message);
+  }
+  setInputs(true); el.focus();
+}
+
+_("userInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+_("userInput").addEventListener("input", function() {
+  this.style.height = "auto"; this.style.height = Math.min(this.scrollHeight, 100) + "px";
+});
+
+// Load saved book title
+const savedBookTitle = localStorage.getItem("pra_book_title") || "";
+_("bookTitle").value = savedBookTitle;
+</script>
+</body>
+</html>

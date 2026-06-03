@@ -2,11 +2,12 @@ langgraph
 langchain
 langchain-core
 langchain_community
+langchain-chroma
 chromadb
-tavily-python
- requests
- sqlalchemy
- pydantic
- fastapi
- uvicorn
- python-dotenv
+dashscope
+requests
+sqlalchemy
+pydantic
+fastapi
+uvicorn
+python-dotenv

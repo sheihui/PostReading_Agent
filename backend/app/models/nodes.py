@@ -5,8 +5,8 @@ from typing import Dict, List
 from app.models.state import AgentState
 from app.llm.client import call_llm
 from app.tools.rag import rag_add_book_documents, rag_retrieve
-from app.tools.search import search_books_perspective, search_books_review
 from app.utils.get_book_to_json import get_book_info, save_json_file
+from app.utils.context import compress_within_topic, summarize_topic
 from app.config import notes_file_path
 
 
@@ -29,56 +29,39 @@ def collect_info(state: AgentState) -> AgentState:
     # book_id = state["book_id"]
     
     # ===== 步骤 1-2: 获取划线+笔记，存入 RAG =====
-    # 获取书籍信息
-    book_info, is_exist = get_book_info(book_title)
+    book_data, is_exist = get_book_info(book_title, state.get("api_key", ""))
     if is_exist:
         print(f"节点1[collect_info]书籍信息已存在: data/books/{book_title}.json")
     else:
-        # 保存书籍信息到 JSON 文件
-        save_json_file(book_info, book_title)
-        # 添加书籍文档到 RAG 系统
+        save_json_file(book_data, book_title)
         rag_add_book_documents.invoke({"title": book_title})
-    
-    # 提取书籍简介
-    book_intro = book_info["book_info"].get("intro", "").strip()
+
+    book_intro = book_data["info"].get("intro", "").strip()
 
     print(f"节点1[collect_info]获取划线+笔记，存入 RAG成功，书籍标题：{book_title}")
     print("="*50)
     print(f"书籍简介：{book_intro}")
     print("="*50)
     
-    # ===== 步骤 3: 搜索书籍核心观点 → state =====
-    # perspective_raw = search_books_perspective.invoke({"book_title": book_title})
-    perspective_raw = ""
-    # 用 LLM 提取关键观点
-    perspective_prompt = f"""从以下内容中提取《{book_title}》的3-5个核心观点，简短描述每条观点。
+    # ===== 步骤 3: 热门划线 → 核心观点 =====
+    bestbookmarks = book_data.get("bestbookmarks", {})
+    perspective = []
+    for item in bestbookmarks.get("items", [])[:5]:
+        mark_text = item.get("markText", "").strip()
+        if mark_text:
+            perspective.append({"content": f"- {mark_text}"})
 
-内容：
-{perspective_raw}
+    print(f"节点1[collect_info]热门划线提取观点: {len(perspective)} 条")
 
-输出格式（每行一个观点）：
-- 观点1
-- 观点2
-- ..."""
-    perspective_text = call_llm(perspective_prompt)
-    # 转换为列表存 state
-    perspective = [{"content": line.strip()} for line in perspective_text.strip().split("\n") if line.strip()]
-    
-    # ===== 步骤 4: 搜索读者观点 → state =====
-    review_raw = search_books_review.invoke({"book_title": book_title})
-    # 用 LLM 提取精选评论
-    review_prompt = f"""从以下内容中提取3-5条有价值的读者评论或读后感。
+    # ===== 步骤 4: 公开点评 → 读者观点 =====
+    public_reviews = book_data.get("publicReviews", {})
+    review = []
+    for r in public_reviews.get("reviews", [])[:5]:
+        content = r.get("review", {}).get("review", {}).get("content", "").strip()
+        if content:
+            review.append({"content": f"- {content[:200]}"})
 
-内容：
-{review_raw}
-
-输出格式（每行一条评论）：
-- 评论1
-- 评论2
-- ..."""
-    review_text = call_llm(review_prompt)
-    # 转换为列表存 state
-    review = [{"content": line.strip()} for line in review_text.strip().split("\n") if line.strip()]
+    print(f"节点1[collect_info]公开点评提取评论: {len(review)} 条")
     
     # 更新 state
     return {
@@ -100,6 +83,7 @@ def plan_themes(state: AgentState) -> AgentState:
     perspective = state.get("perspective", [])
     review = state.get("review", [])
     themes = state.get("theme", [])
+    llm_key = state.get("llm_api_key", "")
     print(f"节点2[plan_themes]开始")
     
     # ===== 检索用户划线（个性化核心）=====
@@ -114,8 +98,7 @@ def plan_themes(state: AgentState) -> AgentState:
     review_str = "\n".join([r.get("content", "") for r in review])
 
     previous_topics = ", ".join([t.get("topic", "") for t in themes])
-    recent_msgs = state.get("messages", [])[-6:] if len(state.get("messages", [])) > 6 else state.get("messages", [])
-    recent_history = "\n".join([f"{m.get('role','')}: {m.get('content','')}" for m in recent_msgs])
+    recent_history = compress_within_topic(state.get("messages", []), llm_key)
 
     
     prompt = f"""你是一本读书会的引导者。用户正在讨论一本已读过书。
@@ -124,6 +107,15 @@ def plan_themes(state: AgentState) -> AgentState:
 
 【书籍】
 {book_title}
+
+【书籍简介】
+{book_intro}
+
+【核心观点（本书热门划线）】
+{perspective_str}
+
+【读者评价】
+{review_str}
 
 【之前的讨论主题】（参考，不要重复）
 {previous_topics}
@@ -145,17 +137,15 @@ def plan_themes(state: AgentState) -> AgentState:
 注意：reason 会用于判断是否要切换主题，请用一句话说明这个主题的价值和讨论意义。"""
 
 
-    result = call_llm(prompt)
+    result = call_llm(prompt, llm_api_key=llm_key)
     print()
     print("\n"+"="*50)
     print(f"节点2[plan_themes]原始输出：{result}")
     print("="*50 + "\n")
     
     # 解析 JSON
-    import json
+    import json, re
     try:
-        # 尝试提取 JSON 部分
-        import re
         match = re.search(r'\[.*\]', result, re.DOTALL)
         if match:
             themes = json.loads(match.group())
@@ -163,6 +153,13 @@ def plan_themes(state: AgentState) -> AgentState:
             themes = []
     except:
         themes = []
+
+    if not themes:
+        themes = [{
+            "topic": f"聊聊《{book_title}》",
+            "question": f"读完《{book_title}》，你印象最深的是什么？",
+            "reason": "默认主题（JSON 解析失败时兜底）"
+        }]
     
     print(f"节点2[plan_themes]规划讨论主题成功，书籍标题：{book_title}")
     print("="*50)
@@ -176,9 +173,10 @@ def plan_themes(state: AgentState) -> AgentState:
 
 
 def execute_theme(state: AgentState) -> AgentState:
-    """节点3: 执行讨论主题 - 只生成回复"""
+    """节点3: 执行讨论主题 — 生成回复并更新上下文"""
     print(f"节点3[execute_theme]开始执行，书籍标题：{state['book_title']}")
     print("="*50)
+    llm_key = state.get("llm_api_key", "")
     current_theme_idx = state["current_theme_idx"]
     themes = state["theme"]
     messages = state.get("messages", [])
@@ -191,26 +189,27 @@ def execute_theme(state: AgentState) -> AgentState:
     topic = current_theme.get("topic", "")
     question = current_theme.get("question", "")
 
-    # 构建历史
-    history_str = ""
-    for msg in messages:
-        role = msg.get("role", "")
-        content = msg.get("content", "")
-        history_str += f"{role}: {content}\n"
-
     # ===== 生成回复 =====
-    if not messages:
-        # 第一轮：直接用设计好的问题
-        reply_content = question
+    user_messages = [m for m in messages if m.get("role") == "user"]
+    if len(user_messages) <= 1:
+        import random
+        openers = [
+            f"嗨，欢迎来到读书会。今天我们一起聊聊《{state['book_title']}》吧。",
+            f"你好呀，很高兴能和你一起读《{state['book_title']}》。",
+            f"又见面了。这次我们读的是《{state['book_title']}》，准备好了吗？",
+            f"欢迎回来。今天要聊的是《{state['book_title']}》，先从哪说起呢？",
+            f"很高兴见到你。《{state['book_title']}》这本书很有意思，我们慢慢聊。",
+        ]
+        reply_content = random.choice(openers)
     else:
-        # 后续轮：生成追问
+        history_str = compress_within_topic(messages, llm_key)
         followup_prompt = f"""用户正在讨论《{state['book_title']}》的主题「{topic}」。
 
 对话历史：
 {history_str}
 
 请继续追问，引导用户更深入地思考。"""
-        reply_content = call_llm(followup_prompt)
+        reply_content = call_llm(followup_prompt, llm_api_key=llm_key)
 
     # ===== 提取洞察 =====
     if messages:
@@ -218,11 +217,10 @@ def execute_theme(state: AgentState) -> AgentState:
         if last_user_msg:
             insight_prompt = f"""从用户的回答中提取一个关键洞察（不超过20字）：
 用户说：{last_user_msg}"""
-            new_insight = call_llm(insight_prompt).strip()
+            new_insight = call_llm(insight_prompt, llm_api_key=llm_key).strip()
             if new_insight:
                 insight.append(new_insight)
 
-    # 更新 messages
     print(f"节点3[execute_theme]生成回复成功，书籍标题：{state['book_title']}")
     print("="*50)
     print(f"回复内容：{reply_content}")
@@ -231,20 +229,21 @@ def execute_theme(state: AgentState) -> AgentState:
 
     return {
         "messages": messages,
-        "insight": insight
+        "insight": insight,
     }
 
 
 def reflect(state: AgentState) -> AgentState:
-    """节点4: 反思讨论状态 - 决策"""
+    """节点4: 反思讨论状态 — 决策 + 主题归档"""
     print(f"节点4[reflect]开始执行，书籍标题：{state['book_title']}")
     print("="*50)
+    llm_key = state.get("llm_api_key", "")
     themes = state["theme"]
     current_theme_idx = state["current_theme_idx"]
     messages = state.get("messages", [])
     insight = state.get("insight", [])
+    topic_summaries = state.get("topic_summaries", {})
 
-    # 所有主题都完成了
     if current_theme_idx >= len(themes):
         return {"next": "generate_notes"}
 
@@ -252,16 +251,9 @@ def reflect(state: AgentState) -> AgentState:
     topic = current_theme.get("topic", "")
     reason = current_theme.get("reason", "")
 
-    # 构建对话历史
-    history_str = ""
-    for msg in messages:
-        role = msg.get("role", "")
-        content = msg.get("content", "")
-        history_str += f"{role}: {content}\n"
-
+    history_str = compress_within_topic(messages, llm_key)
     insight_str = ", ".join(insight) if insight else "暂无"
 
-    # ===== 决策 =====
     decision_prompt = f"""作为读书会引导者，评估当前讨论状态。
 
                     【当前主题】
@@ -291,7 +283,7 @@ def reflect(state: AgentState) -> AgentState:
                     - continue: 用户对主题感兴趣且话题未完成，继续讨论
                     - next_theme: 主题已讨论充分，进入下一主题
                     - plan_themes: 用户对当前主题不感兴趣或想聊新话题，重新规划主题
-                    - finish: 用户主动想要结束讨论。例如：“我们今天就聊到这吧”。
+                    - finish: 用户主动想要结束讨论。例如："我们今天就聊到这吧"。
 
                     输出格式：
                     user_interest: high/medium/low
@@ -301,36 +293,51 @@ def reflect(state: AgentState) -> AgentState:
                     reason: 简短说明
                     """
 
-    result = call_llm(decision_prompt)
+    result = call_llm(decision_prompt, llm_api_key=llm_key)
 
-    # 解析决策
     decision = "continue"
     for line in result.split("\n"):
         if line.startswith("decision:"):
             decision = line.split(":")[1].strip()
     print(f"reflect 决策：{decision}")
 
+    # ===== 主题归档 =====
+    if decision in ("next_theme", "plan_themes", "finish"):
+        if messages:
+            topic_summaries[topic] = summarize_topic(topic, messages, llm_key)
+            print(f"reflect 归档主题「{topic}」")
+
     # ===== 返回决策结果 =====
     if decision == "finish":
-        return {"next": "generate_notes", "is_complete": True}
+        return {"next": "generate_notes", "is_complete": True, "topic_summaries": topic_summaries}
     elif decision == "next_theme":
-        return {"next": "execute_theme", "current_theme_idx": current_theme_idx + 1}
+        return {
+            "next": "execute_theme",
+            "current_theme_idx": current_theme_idx + 1,
+            "topic_summaries": topic_summaries,
+            "messages": [],
+        }
     elif decision == "plan_themes":
-        return {"next": "plan_themes"}
+        return {
+            "next": "plan_themes",
+            "topic_summaries": topic_summaries,
+            "messages": [],
+        }
     else:  # continue
         return {"next": "execute_theme"}
 
 def generate_notes(state: AgentState) -> AgentState:
     """
     节点5: 生成读书笔记
-    - 整合所有对话、洞察、主题
+    - 整合所有主题摘要 + 当前对话 + 洞察
     - 输出结构化笔记并保存到文件
     """
     print(f"节点5[generate_notes]开始执行")
     print("="*50)
 
     import os
-    
+
+    llm_key = state.get("llm_api_key", "")
     book_title = state["book_title"]
     book_intro = state.get("book_intro", "")
     perspective = state.get("perspective", [])
@@ -338,21 +345,23 @@ def generate_notes(state: AgentState) -> AgentState:
     themes = state.get("theme", [])
     messages = state.get("messages", [])
     insight = state.get("insight", [])
-    
-    # 构建对话摘要
-    dialogue_summary = ""
-    for msg in messages:
-        role = msg.get("role", "")
-        content = msg.get("content", "")
-        dialogue_summary += f"{role}: {content}\n"
-    
-    # 主题和洞察
-    themes_str = "\n".join([f"- {t.get('topic', '')}: {t.get('question', '')}" for t in themes])
+    topic_summaries = state.get("topic_summaries", {})
+
+    # 各主题摘要
+    summaries_lines = []
+    for topic_name, summary in topic_summaries.items():
+        summaries_lines.append(f"- {topic_name}: {summary}")
+    topic_text = "\n".join(summaries_lines) if summaries_lines else "暂无"
+
+    # 当前主题对话
+    current_dialogue = "\n".join(
+        [f"{m.get('role','')}: {m.get('content','')}" for m in messages]
+    )
+
     insight_str = "\n".join([f"- {i}" for i in insight])
     perspective_str = "\n".join([f"- {p.get('content', '')}" for p in perspective])
     review_str = "\n".join([f"- {r.get('content', '')}" for r in review])
-    
-    # ===== LLM 生成笔记 =====
+
     note_prompt = f"""请为用户生成一份结构化的读书笔记。
 
 【书籍】
@@ -367,43 +376,39 @@ def generate_notes(state: AgentState) -> AgentState:
 【读者观点】
 {review_str}
 
-【讨论的主题】
-{themes_str}
+【各主题讨论摘要及用户核心观点】
+{topic_text}
+
+【当前对话】
+{current_dialogue}
 
 【用户洞察】
 {insight_str}
 
-【对话记录】
-{dialogue_summary}
-
 请生成一份完整的读书笔记，包含：
 1. 书名和简介
 2. 核心观点总结
-3. 用户的独特思考（基于洞察）
+3. 用户的独特思考（基于各主题讨论）
 4. 与其他读者的共鸣/差异
 5. 最终总结
 
 输出格式：Markdown"""
 
-    final_note = call_llm(note_prompt)
-    
-    # ===== 保存到文件 =====
+    final_note = call_llm(note_prompt, llm_api_key=llm_key)
+
     notes_dir = notes_file_path
     os.makedirs(notes_dir, exist_ok=True)
-    
-    # 清理文件名
+
     safe_title = "".join(c for c in book_title if c not in r'<>:"/\|?*')
     file_path = os.path.join(notes_dir, f"{safe_title}.txt")
-    
+
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(final_note)
-    
+
     print(f"节点5[generate_notes]执行完成，笔记已保存到：{file_path}")
     print("="*50)
-    
-    return {
-        "final_note": final_note
-    }
+
+    return {"final_note": final_note}
 
 
 

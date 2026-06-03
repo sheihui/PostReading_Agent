@@ -14,6 +14,8 @@ async def chat(request: dict):
     # book_id = request.get("book_id")
     book_title = request.get("book_title")
     message = request.get("message")
+    api_key = request.get("api_key", "")
+    llm_api_key = request.get("llm_api_key", "")
 
     thread_id = f"{user_id}"
     config = {"configurable": {"thread_id": thread_id}}
@@ -23,6 +25,8 @@ async def chat(request: dict):
             "user_id": user_id,
             "book_id": "",
             "book_title": book_title,
+            "api_key": api_key,
+            "llm_api_key": llm_api_key,
             "book_intro": "",
             "my_review": [],
             "perspective": [],
@@ -30,6 +34,7 @@ async def chat(request: dict):
             "theme": [],
             "current_theme_idx": 0,
             "messages": [],
+            "topic_summaries": {},
             "insight": [],
             "is_complete": False,
             "final_note": ""
@@ -77,6 +82,14 @@ async def chat(request: dict):
 
 
     # 返回回复
-    assistant_message = result["messages"][-1]["content"]
-    return {"message": assistant_message, "is_complete": result.get("is_complete", False)}
+    assistant_message = result["messages"][-1]["content"] if result.get("messages") else ""
+    themes = result.get("theme", [])
+    idx = result.get("current_theme_idx", 0)
+    current_theme = themes[idx] if idx < len(themes) else None
+    return {
+        "message": assistant_message,
+        "is_complete": result.get("is_complete", False),
+        "current_theme": current_theme,
+        "topic_summaries": result.get("topic_summaries", {}),
+    }
     

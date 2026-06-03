@@ -1,155 +1,146 @@
-  # 📚 PostReading Agent (AI 读书助手)
-<div align="center">
+# PostReading Agent
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/) [![Framework: FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/) [![Frontend: Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://streamlit.io/)
+读完一本书，和 AI 来一场有深度的对话。
 
-</div>
+PostReading Agent 是一个基于 LangGraph 的阅读讨论智能体，采用 Plan-and-Execute + Reflection 双范式架构。连接你的微信读书数据，通过引导式多轮对话帮你深度消化书籍内容，并自动生成结构化读书笔记。
 
-> **PostReading Agent** 是一个专为“读书后讨论与笔记生成”设计的 AI 智能体。它基于 **LangGraph** 框架，采用 `Plan-and-Execute + Reflection` 双范式，通过引导式的多轮对话，帮助你深度消化书籍内容，并自动沉淀结构化的读书笔记。
+## 核心特性
 
-## ✨ 核心特性
+- **微信读书数据接入** — 通过 Weread Agent Gateway 拉取划线、想法、热门标注和公开书评，构建个人阅读知识库
+- **主题式引导讨论** — LLM 动态规划讨论主题，循序引导深度思考，而非简单问答
+- **反思与自适应** — Agent 评估用户兴趣和讨论深度，自动决定继续深入、切换主题或生成笔记
+- **上下文压缩** — 主题内滑动窗口 + 摘要压缩，长对话不丢失脉络
+- **可折叠主题归档** — 已讨论主题自动摘要归档，可展开回顾
+- **全自动笔记生成** — 整合所有主题讨论，生成结构化读书笔记并保存
 
-- **🧠 智能书籍解析与 RAG**：自动结合用户阅读痕迹（如微信读书的划线、想法）、书籍核心观点与高赞书评，构建专属知识库。
-- **🗺️ 主题式启发讨论**：根据书籍内容动态规划讨论主题（Plan），循序渐进地引导用户进行深度思考。
-- **💬 沉浸式多轮对话**：执行讨论（Execute）并具备反思能力（Reflection），AI 会根据你的回答决定是深入当前话题，还是推进到下一主题。
-- **📝 全自动笔记生成**：讨论结束后，自动提炼多轮对话中的思想火花，生成结构化、富有洞察的专属读书笔记。
+## 架构
 
-## 🏗️ 技术架构
+<img src="frontend/image/architecture.png" alt="架构图" width="600" />
 
-本项目采用前后端分离架构，核心逻辑由 LangGraph 驱动：
+Agent 采用 **Plan-and-Execute + Reflection** 双范式，以 reflect 节点为路由中心：
 
-```mermaid
-graph TD
-    subgraph 初始化阶段
-        A[用户: 开启读书讨论] --> B[collect_info: 收集/检索书籍信息]
-        B --> C[plan_themes: 规划讨论主题]
-    end
+- **Plan**：plan_themes 分析书籍内容，规划讨论主题
+- **Execute**：execute_theme 围绕当前主题引导用户讨论
+- **Reflect**：reflect 评估讨论质量后决定继续深入、切换主题、重规划或生成笔记
 
-    subgraph 对话与反思循环
-        C --> D[execute_theme: 执行当前主题探讨]
-        D --> E[reflect: 反思用户输入]
-        E -->|需深入/继续当前主题| D
-        E -->|已充分/进入下一主题| D
-    end
 
-    subgraph 总结阶段
-        E -->|所有主题讨论完毕| F[generate_notes: 提炼并生成读书笔记]
-    end
+## 截图
 
-    B -.->|RAG 检索| B1[(向量数据库)]
-    C -.-> C1((LLM: 提纲规划))
-    D -.-> D1((LLM: 启发式问答))
-    E -.-> E1((LLM: 意图识别与状态流转))
-    F -.-> F1((LLM: 总结归纳))
-````
+| 登录页 | 对话界面 |
+|--------|----------|
+| ![登录页](frontend/image/login%20page.png) | ![对话界面](frontend/image/chat%20page.png) |
 
-## 📁 项目目录结构
-
-Plaintext
+## 目录结构
 
 ```
 PostReading_Agent/
-├── backend/                 # 核心后端服务 (FastAPI)
+├── frontend/
+│   ├── index.html          # 单文件前端（登录 + 聊天 UI）
+│   └── image/
+├── backend/
 │   ├── app/
-│   │   ├── api/             # RESTful API 路由
-│   │   ├── llm/             # LLM 模型接口封装
-│   │   ├── models/          # LangGraph 状态图与节点定义
-│   │   ├── storage/         # 向量数据库集成 (Chroma)
-│   │   ├── tools/           # 外部工具 (RAG 检索、网络搜索等)
-│   │   └── utils/           # 辅助工具 (如微信读书 API 适配)
-│   └── data/                # 本地数据存储
-│       ├── books/           # 书籍基础元数据 (JSON)
-│       ├── notes/           # 最终生成的读书笔记
-│       └── vector_db/       # Chroma 向量数据持久化目录
-└── frontend/                # 交互前端 (Streamlit)
-    └── streamlit_app.py     # 前端主入口
+│   │   ├── main.py         # FastAPI 入口
+│   │   ├── config.py       # 全局配置
+│   │   ├── api/
+│   │   │   └── routes.py   # /api/chat 路由
+│   │   ├── models/
+│   │   │   ├── state.py    # AgentState 定义
+│   │   │   ├── nodes.py    # 5 个 Agent 节点
+│   │   │   └── graph.py    # StateGraph 构建
+│   │   ├── llm/
+│   │   │   └── client.py   # LLM 客户端（DashScope → DeepSeek V4 Pro）
+│   │   ├── storage/
+│   │   │   └── vector_store.py  # ChromaDB 向量存储
+│   │   ├── tools/
+│   │   │   └── rag.py      # RAG 检索与文档摄入
+│   │   └── utils/
+│   │       ├── context.py          # 上下文压缩与主题归档
+│   │       └── get_book_to_json.py # Weread Gateway 数据获取
+│   ├── data/
+│   │   ├── books/           # 书籍缓存 (JSON)
+│   │   ├── notes/           # 生成笔记
+│   │   └── chroma/          # 向量数据
+│   ├── requirement.txt
+│   └── .env
+└── README.md
 ```
 
-## 🚀 快速开始
+## 快速开始
 
-## 1. 环境准备
+### 1. 环境准备
 
-确保你已安装 Python 3.8+。克隆本项目到本地：
+Python 3.10+，克隆项目：
 
-Bash
-
-```
-git clone [https://github.com/sheihui/PostReading_Agent.git](https://github.com/sheihui/PostReading_Agent.git)
-cd PostReading_Agent
-```
-
-## 2. 配置环境变量
-
-在 `backend/` 目录下创建 `.env` 文件，并填入你的大模型 API 密钥（目前默认支持基于 DashScope 或兼容接口的模型）：
-
-代码段
-
-```
-# LLM 鉴权配置
-DASHSCOPE_API_KEY=your_api_key_here
-# 可选：其他 API Keys 或配置
+```bash
+git clone https://github.com/sheihui/PostReading_Agent.git
+cd PostReading_Agent/backend
+pip install -r requirement.txt
 ```
 
-## 3. 启动后端服务
+### 2. 获取 API Key
 
-Bash
+- **百炼 API Key**：前往 [阿里云百炼控制台](https://bailian.console.aliyun.com/) 获取 DashScope API Key
+- **微信读书 Key**：访问 [weread.qq.com/r/weread-skills](https://weread.qq.com/r/weread-skills) 扫码获取
 
-```
+两个 Key 在打开前端页面时填入即可，无需写入 `.env`。
+
+### 3. 启动后端
+
+```bash
 cd backend
-pip install -r requirements.txt
-# 将当前目录加入环境变量以确保包导入正常
 export PYTHONPATH=$(pwd):$PYTHONPATH
-# 启动 FastAPI 服务
 uvicorn app.main:app --reload --port 8000
 ```
 
-## 4. 启动前端页面
+### 4. 打开前端
 
-打开一个新的终端窗口：
+直接用浏览器打开 `frontend/index.html`，或通过任意静态文件服务：
 
-Bash
-
-```
-cd frontend
-pip install -r requirements.txt # (如果有单独的前端依赖)
-streamlit run streamlit_app.py
+```bash
+open frontend/index.html
 ```
 
-访问 `http://localhost:8501`，在侧边栏输入你的用户 ID 和书名，即可开始与 AI 的思想碰撞！
+在登录页填入两个 Key，点击「进入 PostReading」即可使用。
 
-## 接口文档 (API Reference)
+## API
 
-后端启动后，你可以访问 `http://localhost:8000/docs` 查看完整的 Swagger 交互式 API 文档。
+后端启动后访问 `http://localhost:8000/docs` 查看 Swagger 文档。
 
-**核心接口示例：** `POST /api/chat` - 发送消息并推进讨论状态
+**POST /api/chat**
 
-Bash
-
-```
+```bash
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": "user123",
+    "user_id": "user",
     "book_title": "思考，快与慢",
-    "message": "我准备好开始聊这本书了"
+    "message": "你好",
+    "api_key": "wrk-xxxxx",
+    "llm_api_key": "sk-xxxxx"
   }'
 ```
 
-## 🛠️ 技术栈
+响应：
 
-- **Agent 框架**: [LangGraph](https://python.langchain.com/docs/langgraph)
-    
-- **后端服务**: [FastAPI](https://fastapi.tiangolo.com/)
-    
-- **前端交互**: [Streamlit](https://streamlit.io/)
-    
-- **向量数据库**: [ChromaDB](https://www.trychroma.com/)
-    
-- **大语言模型**: DashScope (如 MiniMax-M2.5 或其他兼容模型)
-    
+```json
+{
+  "message": "嗨，欢迎来到读书会。今天我们一起聊聊《思考，快与慢》吧。",
+  "is_complete": false,
+  "current_theme": { "topic": "认知偏见", "question": "..." },
+  "topic_summaries": {}
+}
+```
 
-    
+## 技术栈
 
-## 📄 许可证
+- **Agent 框架**：LangGraph（Plan-and-Execute + Reflection）
+- **后端**：FastAPI
+- **前端**：原生 HTML/CSS/JS（无框架）
+- **向量数据库**：ChromaDB
+- **LLM**：DeepSeek V4 Pro via 阿里云百炼 (DashScope)
+- **嵌入模型**：text-embedding-v4 via DashScope
+- **数据源**：微信读书 Agent Gateway
 
-本项目基于 [MIT License](https://www-d-google-d-com-s-gmn.v.tuangouai.com/search?q=LICENSE) 开源。
+## License
+
+MIT

@@ -1,55 +1,34 @@
-"""
-LLM 客户端 - 基于 MiniMax-M2.5
-"""
-
 from langchain_community.chat_models import ChatTongyi
 from app.config import DASHSCOPE_API_KEY
-from typing import Optional, List, Dict
 
-llm = ChatTongyi(
-    model_name="MiniMax-M2.5",
+_default_llm = ChatTongyi(
+    model_name="deepseek-v4-pro",
     api_key=DASHSCOPE_API_KEY,
     temperature=0.7,
 )
+_llm_cache = {}
 
-def call_llm(
-        promtpt: str,
-        system_prompt: Optional[str] = None,
-        model_name: str = "MiniMax-M2.5",
-        temperature: float = 0.7,
-) -> str:
-    """调用 LLM 模型"""
+def _get_llm(api_key: str = ""):
+    if not api_key:
+        return _default_llm
+    if api_key not in _llm_cache:
+        _llm_cache[api_key] = ChatTongyi(
+            model_name="deepseek-v4-pro",
+            api_key=api_key,
+            temperature=0.7,
+        )
+    return _llm_cache[api_key]
+
+def call_llm(prompt: str, system_prompt: str = "", llm_api_key: str = "") -> str:
+    llm = _get_llm(llm_api_key)
     if system_prompt:
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": promtpt},
+            {"role": "user", "content": prompt},
         ]
     else:
         messages = [
-            {"role": "user", "content": promtpt},
+            {"role": "user", "content": prompt},
         ]
     response = llm.invoke(messages)
     return response.content
-
-
-
-def chat_with_history(
-        promtpt: str,
-        system_prompt: Optional[str] = None,
-        model_name: str = "MiniMax-M2.5",
-        temperature: float = 0.7,
-) -> str:
-    """调用 LLM 模型，带有历史记录"""
-    if system_prompt:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": promtpt},
-        ]
-    else:
-        messages = [
-            {"role": "user", "content": promtpt},
-        ]
-    response = llm.invoke(messages)
-    return response.content
-
-

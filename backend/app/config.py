@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
-TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-WEREAD_COOKIE = os.getenv("WEREAD_COOKIE")
+WEREAD_API_KEY = os.getenv("WEREAD_API_KEY")
 
 
 # Chroma 配置
