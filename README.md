@@ -1,12 +1,27 @@
 # PostReading Agent
 
+
+
+<div align="center">
+
+[![LangGraph](https://img.shields.io/badge/LangGraph-Agent-FF6F00?logo=langgraph&logoColor=white)](https://langchain-ai.github.io/langgraph/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek_V4_Pro-4B8BF5)](https://www.deepseek.com/)
+[![Architecture](https://img.shields.io/badge/Architecture-Plan--Execute_+_Reflect-b8754a)](https://arxiv.org/abs/2303.17651)
+
+</div>
+
 读完一本书，和 AI 来一场有深度的对话。
 
-PostReading Agent 是一个基于 LangGraph 的阅读讨论智能体，采用 Plan-and-Execute + Reflection 双范式架构。连接你的微信读书数据，通过引导式多轮对话帮你深度消化书籍内容，并自动生成结构化读书笔记。
+PostReading Agent 是一个基于 LangGraph 的阅读讨论智能体，采用 **Plan-and-Execute + Reflection** 双范式架构。连接你的微信读书数据，通过引导式多轮对话帮你深度消化书籍内容，并自动生成结构化读书笔记。
+
+| 登录页                                     | 对话界面                                    |
+| ------------------------------------------ | ------------------------------------------- |
+| ![登录页](frontend/image/login%20page.png) | ![对话界面](frontend/image/chat%20page.png) |
 
 ## 核心特性
 
-- **微信读书数据接入** — 通过 Weread Agent Gateway 拉取划线、想法、热门标注和公开书评，构建个人阅读知识库
+- **微信读书数据接入** — 通过 Weread Skill 拉取划线、想法、热门标注和公开书评，构建个人阅读知识库
 - **主题式引导讨论** — LLM 动态规划讨论主题，循序引导深度思考，而非简单问答
 - **反思与自适应** — Agent 评估用户兴趣和讨论深度，自动决定继续深入、切换主题或生成笔记
 - **上下文压缩** — 主题内滑动窗口 + 摘要压缩，长对话不丢失脉络
@@ -15,20 +30,38 @@ PostReading Agent 是一个基于 LangGraph 的阅读讨论智能体，采用 Pl
 
 ## 架构
 
-<img src="frontend/image/architecture.png" alt="架构图" width="600" />
-
 Agent 采用 **Plan-and-Execute + Reflection** 双范式，以 reflect 节点为路由中心：
 
 - **Plan**：plan_themes 分析书籍内容，规划讨论主题
 - **Execute**：execute_theme 围绕当前主题引导用户讨论
 - **Reflect**：reflect 评估讨论质量后决定继续深入、切换主题、重规划或生成笔记
 
+```
+   Frontend                          Backend                          External
+┌──────────────┐              ┌──────────────────────┐        ┌─────────────────┐
+│  登录页       │   fetch      │   FastAPI + LangGraph │       │ 微信读书 Gateway │
+│  · Key 输入   │ ──────────→  │                       │       │  · 划线 · 想法   │
+│              │              │  POST /api/chat       │ ←──── │  · 书评 · 标注    │
+│  对话界面     │ ←──────────  │                       │        └─────────────────┘
+│  · 主题面板   │    JSON      │  collect_info         │
+│  · 对话区     │              │      ↓                │        ┌─────────────────┐
+│  · 笔记归档   │              │  plan_themes (Plan)   │        │  DeepSeek V4 Pro│
+└──────────────┘              │      ↓                │ ─────→ │  via DashScope  │
+                              │  execute_theme (Exec) │ ←────  │                 │
+                              │      ↓                │        └─────────────────┘
+                              │  reflect (Reflect)    │
+                              │   ↙  ↓  ↘             │        ┌─────────────────┐
+                              │  回  重  生            │        │    ChromaDB     │
+                              │  主  规  成            │ ←────  │ 向量检索 / RAG   │
+                              │  题  划  笔            │        └─────────────────┘
+                              │      ↓                │
+                              │  generate_notes       │        ┌─────────────────┐
+                              │      ↓                │        │    本地文件      │
+                              │  notes/*.txt          │ ─────→ │  笔记 / 缓存     │
+                              └───────────────────────┘        └─────────────────┘
+```
 
-## 截图
-
-| 登录页 | 对话界面 |
-|--------|----------|
-| ![登录页](frontend/image/login%20page.png) | ![对话界面](frontend/image/chat%20page.png) |
+<div align="center"><img src="frontend/image/architecture.png" alt="架构图" width="280" /></div>
 
 ## 目录结构
 
