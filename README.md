@@ -6,7 +6,7 @@
 
 [![LangGraph](https://img.shields.io/badge/LangGraph-Agent-FF6F00?logo=langgraph&logoColor=white)](https://langchain-ai.github.io/langgraph/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek_V4_Pro-4B8BF5)](https://www.deepseek.com/)
+[![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek_V4_Flash-4B8BF5)](https://www.deepseek.com/)
 [![Architecture](https://img.shields.io/badge/Architecture-Plan--Execute_+_Reflect-b8754a)](https://arxiv.org/abs/2303.17651)
 
 </div>
@@ -26,7 +26,7 @@ PostReading Agent 是一个基于 LangGraph 的阅读讨论智能体，采用 **
 - **反思与自适应** — Agent 评估用户兴趣和讨论深度，自动决定继续深入、切换主题或生成笔记
 - **上下文压缩** — 主题内滑动窗口 + 摘要压缩，长对话不丢失脉络
 - **可折叠主题归档** — 已讨论主题自动摘要归档，可展开回顾
-- **全自动笔记生成** — 整合所有主题讨论，生成结构化读书笔记并保存
+- **全自动笔记生成** — 整合所有主题讨论 + 用户划线原文，生成结构化读书笔记，支持下载
 
 ## 架构
 
@@ -158,11 +158,18 @@ curl -X POST http://localhost:8000/api/chat \
 ```json
 {
   "message": "嗨，欢迎来到读书会。今天我们一起聊聊《思考，快与慢》吧。",
+  "new_messages": [
+    "嗨，欢迎来到读书会。今天我们一起聊聊《思考，快与慢》吧。",
+    "我们先聊聊「系统1和系统2」——你觉得日常决策中，哪个系统在主导？"
+  ],
   "is_complete": false,
-  "current_theme": { "topic": "认知偏见", "question": "..." },
-  "topic_summaries": {}
+  "current_theme": { "topic": "系统1和系统2", "question": "..." },
+  "topic_summaries": {},
+  "note_file": null
 }
 ```
+
+**GET /api/notes/{book_title}** — 下载生成的读书笔记文件（Markdown）。
 
 ## 技术栈
 

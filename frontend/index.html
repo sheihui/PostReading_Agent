@@ -283,6 +283,11 @@
     border: 1px solid #e8d5c4; border-radius: var(--radius-sm);
     font-family: var(--font-serif);
   }
+  .note-dl-link {
+    color: var(--accent); text-decoration: underline;
+    font-weight: 600; cursor: pointer;
+  }
+  .note-dl-link:hover { color: #a5683e; }
 
   /* Input */
   .input-area { padding: 0 32px 28px; }
@@ -356,7 +361,7 @@
       <h3>开始阅读讨论</h3>
       <div class="setup-fields">
         <label>书名</label>
-        <input id="bookTitle" placeholder="输入书名…" autocomplete="off">
+        <input id="bookTitle" placeholder="输入书名…" value="思考，快与慢" autocomplete="off">
         <button onclick="startSession()">开始会话</button>
       </div>
     </div>
@@ -409,6 +414,7 @@ let isComplete = false;
 let sessionActive = false;
 let topicSummaries = {};
 let currentTheme = null;
+let noteFile = null;
 
 // ====== LOGIN ======
 const savedApiKey = localStorage.getItem("pra_api_key");
@@ -479,7 +485,11 @@ function render() {
   if (isComplete) {
     const b = document.createElement("div");
     b.className = "done-banner";
-    b.textContent = "讨论已完成";
+    if (noteFile) {
+      b.innerHTML = `讨论已完成 — <a href="${noteFile}" download class="note-dl-link">📄 下载读书笔记</a>`;
+    } else {
+      b.textContent = "讨论已完成";
+    }
     box.appendChild(b);
   }
   updatePanel();
@@ -520,7 +530,7 @@ function startSession() {
   const title = _("bookTitle").value.trim();
   if (!title) return alert("请填写书名");
 
-  messages = []; isComplete = false; sessionActive = true;
+  messages = []; isComplete = false; sessionActive = true; noteFile = null;
   topicSummaries = {}; currentTheme = null;
   _("setupSection").style.display = "none";
   _("sessionInfo").style.display = "";
@@ -564,13 +574,17 @@ async function sendMessage() {
     });
     const data = await resp.json();
     const t = _("thinking-msg"); if (t) t.remove();
-    addMsg("assistant", data.message);
+    if (data.new_messages && data.new_messages.length > 0) {
+      data.new_messages.forEach(msg => addMsg("assistant", msg));
+    } else if (data.message) {
+      addMsg("assistant", data.message);
+    }
     if (data.current_theme) currentTheme = data.current_theme;
     if (data.topic_summaries && Object.keys(data.topic_summaries).length > 0) {
       topicSummaries = data.topic_summaries;
     }
     updatePanel();
-    if (data.is_complete) { isComplete = true; _("userInput").placeholder = "讨论已结束"; setInputs(false); render(); }
+    if (data.is_complete) { isComplete = true; noteFile = data.note_file; _("userInput").placeholder = "讨论已结束"; setInputs(false); render(); }
   } catch (e) {
     const t = _("thinking-msg"); if (t) t.remove();
     addMsg("assistant", "请求失败: " + e.message);
@@ -585,9 +599,6 @@ _("userInput").addEventListener("input", function() {
   this.style.height = "auto"; this.style.height = Math.min(this.scrollHeight, 100) + "px";
 });
 
-// Load saved book title
-const savedBookTitle = localStorage.getItem("pra_book_title") || "";
-_("bookTitle").value = savedBookTitle;
 </script>
 </body>
 </html>
