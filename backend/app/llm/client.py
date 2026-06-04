@@ -2,7 +2,7 @@ from langchain_community.chat_models import ChatTongyi
 from app.config import DASHSCOPE_API_KEY
 
 _default_llm = ChatTongyi(
-    model_name="deepseek-v4-pro",
+    model_name="deepseek-v4-flash",
     api_key=DASHSCOPE_API_KEY,
     temperature=0.7,
 )
@@ -13,7 +13,7 @@ def _get_llm(api_key: str = ""):
         return _default_llm
     if api_key not in _llm_cache:
         _llm_cache[api_key] = ChatTongyi(
-            model_name="deepseek-v4-pro",
+            model_name="deepseek-v4-flash",
             api_key=api_key,
             temperature=0.7,
         )

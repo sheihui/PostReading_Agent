@@ -4,6 +4,14 @@ from app.storage.vector_store import VectorStore
 from app.config import books_file_path
 import json, os
 
+# 单例缓存，避免每次检索都重新初始化 Chroma
+_store_cache = {}
+
+def _get_store(collection: str = "books"):
+    if collection not in _store_cache:
+        _store_cache[collection] = VectorStore(collection)
+    return _store_cache[collection]
+
 
 @tool
 def rag_retrieve(query: str, collection: str = "books", k: int = 4) -> str:
@@ -14,7 +22,7 @@ def rag_retrieve(query: str, collection: str = "books", k: int = 4) -> str:
         collection: collection 名称(默认 "books")
         k: 返回数量(默认 4)
     """
-    vector_store = VectorStore(collection)
+    vector_store = _get_store(collection)
     retriever = vector_store.get_retriever(k=k)
     documents = retriever.invoke(query)
     return documents
@@ -32,7 +40,7 @@ def rag_add_book_documents(title: str, collection: str = "books"):
     with open(filepath, encoding="utf-8") as f:
         data = json.load(f)
 
-    vector_store = VectorStore(collection)
+    vector_store = _get_store(collection)
     book_id = data["info"]["bookId"]
     documents = []
 

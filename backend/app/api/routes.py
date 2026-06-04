@@ -1,9 +1,22 @@
 from fastapi import APIRouter
+from fastapi.responses import FileResponse
+import os
 # from pydantic import BaseModel
 from app.models.graph import agent_graph
+from app.config import notes_file_path
 
 
 router = APIRouter()
+
+
+@router.get("/api/notes/{book_title}")
+async def download_note(book_title: str):
+    """下载读书笔记文件"""
+    safe_title = "".join(c for c in book_title if c not in r'<>:"/\|?*')
+    file_path = os.path.join(notes_file_path, f"{safe_title}.txt")
+    if not os.path.exists(file_path):
+        return {"error": "文件不存在"}
+    return FileResponse(file_path, filename=f"{safe_title}.md", media_type="text/markdown")
 
 # 存states
 conversation_state = {}
@@ -81,15 +94,28 @@ async def chat(request: dict):
     print(f"===== 当前会话 state['theme']：{state['theme']} =====")
 
 
-    # 返回回复
-    assistant_message = result["messages"][-1]["content"] if result.get("messages") else ""
+    # 提取本轮新增的所有 assistant 消息（最后一条 user 消息之后的所有 assistant 消息）
+    all_msgs = result.get("messages", [])
+    new_messages = []
+    for m in reversed(all_msgs):
+        if m.get("role") == "user":
+            break
+        new_messages.append(m.get("content", ""))
+    new_messages.reverse()
+
     themes = result.get("theme", [])
     idx = result.get("current_theme_idx", 0)
     current_theme = themes[idx] if idx < len(themes) else None
+    is_complete = result.get("is_complete", False)
+    book_title = result.get("book_title", "")
+    safe_title = "".join(c for c in book_title if c not in r'<>:"/\|?*')
+
     return {
-        "message": assistant_message,
-        "is_complete": result.get("is_complete", False),
+        "message": new_messages[-1] if new_messages else "",
+        "new_messages": new_messages,
+        "is_complete": is_complete,
         "current_theme": current_theme,
         "topic_summaries": result.get("topic_summaries", {}),
+        "note_file": f"/api/notes/{safe_title}" if is_complete else None,
     }
     

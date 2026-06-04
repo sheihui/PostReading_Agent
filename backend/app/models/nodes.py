@@ -90,7 +90,7 @@ def plan_themes(state: AgentState) -> AgentState:
     # 基于书籍标题检索用户的划线内容
     highlights_retrieved = rag_retrieve.invoke({
         "query": f"{book_title} 划线",
-        "k": 20
+        "k": 10
     })
     
     # 构建 prompt
@@ -181,6 +181,7 @@ def execute_theme(state: AgentState) -> AgentState:
     themes = state["theme"]
     messages = state.get("messages", [])
     insight = state.get("insight", [])
+    topic_summaries = state.get("topic_summaries", {})
 
     if current_theme_idx >= len(themes):
         return {"messages": messages, "insight": insight}
@@ -189,9 +190,19 @@ def execute_theme(state: AgentState) -> AgentState:
     topic = current_theme.get("topic", "")
     question = current_theme.get("question", "")
 
-    # ===== 生成回复 =====
+    # ===== RAG 检索：获取与当前讨论相关的用户划线 =====
     user_messages = [m for m in messages if m.get("role") == "user"]
-    if len(user_messages) <= 1:
+    last_user_msg = user_messages[-1].get("content", "") if user_messages else ""
+    rag_query = f"{topic} {last_user_msg}" if last_user_msg else topic
+    relevant_highlights = rag_retrieve.invoke({
+        "query": rag_query,
+        "k": 5
+    })
+    highlights_context = f"\n【用户相关划线】\n{relevant_highlights}" if relevant_highlights else ""
+
+    # ===== 生成回复 =====
+    if len(user_messages) <= 1 and not topic_summaries:
+        # 首次进入，第一个主题：打招呼 + 主题介绍（两个气泡）
         import random
         openers = [
             f"嗨，欢迎来到读书会。今天我们一起聊聊《{state['book_title']}》吧。",
@@ -200,32 +211,50 @@ def execute_theme(state: AgentState) -> AgentState:
             f"欢迎回来。今天要聊的是《{state['book_title']}》，先从哪说起呢？",
             f"很高兴见到你。《{state['book_title']}》这本书很有意思，我们慢慢聊。",
         ]
-        reply_content = random.choice(openers)
+        greeting = random.choice(openers)
+        messages.append({"role": "assistant", "content": greeting})
+
+        intro_prompt = f"""你们刚开始聊《{state['book_title']}》，第一个话题是「{topic}」。
+
+引导问题是：{question}
+{highlights_context}
+
+请用2-3句话自然引出这个话题，像朋友聊天一样，邀请对方分享想法。不要打招呼（已经打过招呼了），直接切入主题。"""
+        theme_intro = call_llm(intro_prompt, llm_api_key=llm_key)
+        messages.append({"role": "assistant", "content": theme_intro})
+        reply_content = theme_intro
+    elif len(user_messages) <= 1 and topic_summaries:
+        # 切换主题：一个自然过渡的消息
+        prev_topics = "、".join(topic_summaries.keys())
+        transition_prompt = f"""你们刚聊完《{state['book_title']}》的「{prev_topics}」，现在切换到新话题「{topic}」。
+
+引导问题是：{question}
+{highlights_context}
+
+请用2-3句话自然过渡到新话题。先简短回顾一下刚才聊的内容，再引出新话题。不要打招呼，不要长篇大论。"""
+        reply_content = call_llm(transition_prompt, llm_api_key=llm_key)
+        messages.append({"role": "assistant", "content": reply_content})
     else:
         history_str = compress_within_topic(messages, llm_key)
-        followup_prompt = f"""用户正在讨论《{state['book_title']}》的主题「{topic}」。
+        followup_prompt = f"""你和用户正在一起聊《{state['book_title']}》，当前主题是「{topic}」。
 
 对话历史：
 {history_str}
+{highlights_context}
 
-请继续追问，引导用户更深入地思考。"""
+像朋友聊书一样自然回应，2-4句话即可。先回应ta说的，再顺着追问一句。如果用户划线中有相关的，直接引用原文（如"我看到你划了这句——「...原文...」"），再展开，不要含糊地说"你划线的这句"而不引用内容。不要长篇大论。"""
         reply_content = call_llm(followup_prompt, llm_api_key=llm_key)
+        messages.append({"role": "assistant", "content": reply_content})
 
     # ===== 提取洞察 =====
     if messages:
-        last_user_msg = messages[-1].get("content", "")
+        last_user_msg = [m for m in messages if m.get("role") == "user"][-1].get("content", "") if [m for m in messages if m.get("role") == "user"] else ""
         if last_user_msg:
             insight_prompt = f"""从用户的回答中提取一个关键洞察（不超过20字）：
 用户说：{last_user_msg}"""
             new_insight = call_llm(insight_prompt, llm_api_key=llm_key).strip()
             if new_insight:
                 insight.append(new_insight)
-
-    print(f"节点3[execute_theme]生成回复成功，书籍标题：{state['book_title']}")
-    print("="*50)
-    print(f"回复内容：{reply_content}")
-    print("="*50)
-    messages.append({"role": "assistant", "content": reply_content})
 
     return {
         "messages": messages,
@@ -353,6 +382,14 @@ def generate_notes(state: AgentState) -> AgentState:
         summaries_lines.append(f"- {topic_name}: {summary}")
     topic_text = "\n".join(summaries_lines) if summaries_lines else "暂无"
 
+    # ===== RAG 检索：召回全书用户划线，让笔记更个性化 =====
+    topic_names = " ".join(topic_summaries.keys()) if topic_summaries else ""
+    notes_rag_query = f"{book_title} {topic_names}"
+    notes_highlights = rag_retrieve.invoke({
+        "query": notes_rag_query,
+        "k": 15
+    })
+
     # 当前主题对话
     current_dialogue = "\n".join(
         [f"{m.get('role','')}: {m.get('content','')}" for m in messages]
@@ -385,10 +422,13 @@ def generate_notes(state: AgentState) -> AgentState:
 【用户洞察】
 {insight_str}
 
+【用户划线原文】
+{notes_highlights}
+
 请生成一份完整的读书笔记，包含：
 1. 书名和简介
 2. 核心观点总结
-3. 用户的独特思考（基于各主题讨论）
+3. 用户的独特思考（基于各主题讨论，引用其划线原文佐证）
 4. 与其他读者的共鸣/差异
 5. 最终总结
 
