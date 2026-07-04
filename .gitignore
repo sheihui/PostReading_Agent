@@ -1,0 +1,24 @@
+.gitignore
+
+**/.vscode/
+
+**/.DS_Store
+
+
+backend/.env
+
+
+
+
+
+**/__pycache__/
+
+# Runtime data
+backend/data/books/
+backend/data/chroma/
+backend/data/notes/
+backend/data/eval/
+backend/data/profiles/
+.claude/
+
+

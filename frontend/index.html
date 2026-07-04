@@ -316,6 +316,17 @@
   .send-btn:disabled { background: #d5d0c7; cursor: not-allowed; }
   .send-btn svg { width: 14px; height: 14px; }
 
+  .generate-btn {
+    padding: 0 14px; height: 34px;
+    border: 1px solid var(--accent); border-radius: var(--radius-sm);
+    background: transparent; color: var(--accent);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+    font-family: var(--font-serif);
+  }
+  .generate-btn:hover { background: var(--accent); color: #fff; }
+  .generate-btn:disabled { border-color: #d5d0c7; color: #d5d0c7; cursor: not-allowed; background: transparent; }
+
   @media (max-width: 720px) {
     .chat { padding: 16px 20px 20px; }
     .input-area { padding: 0 20px 20px; }
@@ -396,6 +407,7 @@
     <div class="input-area">
       <div class="input-wrap">
         <textarea id="userInput" rows="1" placeholder="写下你的想法…" disabled></textarea>
+        <button id="generateBtn" class="generate-btn" onclick="generateNotes()" disabled>生成笔记</button>
         <button id="sendBtn" class="send-btn" onclick="sendMessage()" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -451,7 +463,7 @@ document.getElementById("loginApiKey").addEventListener("keydown", function(e) {
 
 // ====== HELPERS ======
 function _(id) { return document.getElementById(id); }
-function setInputs(on) { _("userInput").disabled = !on; _("sendBtn").disabled = !on; }
+function setInputs(on) { _("userInput").disabled = !on; _("sendBtn").disabled = !on; _("generateBtn").disabled = !on || !sessionActive || isComplete; }
 function scrollDown() { const box = _("chatBox"); box.scrollTop = box.scrollHeight; }
 function md(text) {
   return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
@@ -482,14 +494,11 @@ function render() {
     box.appendChild(row);
   });
 
-  if (isComplete) {
+  if (isComplete && noteFile) {
     const b = document.createElement("div");
     b.className = "done-banner";
-    if (noteFile) {
-      b.innerHTML = `讨论已完成 — <a href="${noteFile}" download class="note-dl-link">📄 下载读书笔记</a>`;
-    } else {
-      b.textContent = "讨论已完成";
-    }
+    const url = noteFile.startsWith("http") ? noteFile : API.replace("/api/chat", "") + noteFile;
+    b.innerHTML = `<a href="${url}" download class="note-dl-link">下载读书笔记</a>`;
     box.appendChild(b);
   }
   updatePanel();
@@ -500,7 +509,7 @@ function updatePanel() {
   if (currentTheme) {
     _("noTheme").style.display = "none";
     _("themeBadge").classList.add("visible");
-    _("themeBadge").textContent = currentTheme.topic || currentTheme;
+    _("themeBadge").textContent = currentTheme.label || currentTheme.topic || currentTheme;
   }
   const container = _("topicSummaryList");
   const topics = Object.entries(topicSummaries);
@@ -547,15 +556,15 @@ function startSession() {
 }
 
 // ====== SEND ======
-async function sendMessage() {
+async function sendMessage(generateNow = false) {
   const title = _("bookTitle").value.trim();
   const el = _("userInput");
   const text = el.value.trim();
   const isOpening = (text === "" && messages.length === 0);
-  if (!title || (!text && !isOpening) || isComplete) return;
+  if (!title || (!text && !isOpening && !generateNow) || isComplete) return;
 
-  const sendText = isOpening ? "你好" : text;
-  if (!isOpening) addMsg("user", text);
+  const sendText = generateNow ? "请生成读书笔记" : (isOpening ? "你好" : text);
+  if (!isOpening && !generateNow) addMsg("user", text);
   el.value = ""; el.style.height = "auto";
   setInputs(false);
 
@@ -567,10 +576,12 @@ async function sendMessage() {
   scrollDown();
 
   try {
+    const body = { user_id: "user", book_title: title, message: sendText, api_key: apiKey, llm_api_key: llmApiKey };
+    if (generateNow) body.generate_now = true;
     const resp = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: "user", book_title: title, message: sendText, api_key: apiKey, llm_api_key: llmApiKey }),
+      body: JSON.stringify(body),
     });
     const data = await resp.json();
     const t = _("thinking-msg"); if (t) t.remove();
@@ -579,7 +590,7 @@ async function sendMessage() {
     } else if (data.message) {
       addMsg("assistant", data.message);
     }
-    if (data.current_theme) currentTheme = data.current_theme;
+    if (data.current_dimension) currentTheme = data.current_dimension;
     if (data.topic_summaries && Object.keys(data.topic_summaries).length > 0) {
       topicSummaries = data.topic_summaries;
     }
@@ -590,6 +601,14 @@ async function sendMessage() {
     addMsg("assistant", "请求失败: " + e.message);
   }
   setInputs(true); el.focus();
+}
+
+async function generateNotes() {
+  if (!sessionActive || isComplete) return;
+  _("generateBtn").disabled = true;
+  _("generateBtn").textContent = "生成中…";
+  await sendMessage(true);
+  _("generateBtn").textContent = "生成笔记";
 }
 
 _("userInput").addEventListener("keydown", function(e) {

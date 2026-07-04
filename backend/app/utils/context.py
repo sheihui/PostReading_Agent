@@ -26,8 +26,12 @@ def compress_within_topic(messages: list, llm_api_key: str = "") -> str:
 
 摘要："""
 
-    summary = call_llm(prompt, llm_api_key=llm_api_key).strip()
-    return f"【讨论摘要】\n{summary}\n\n【最近对话】\n{_format(recent)}"
+    try:
+        summary = call_llm(prompt, llm_api_key=llm_api_key).strip()
+        return f"【讨论摘要】\n{summary}\n\n【最近对话】\n{_format(recent)}"
+    except Exception as e:
+        print(f"[compress_within_topic] LLM 压缩失败: {e}，返回最近对话")
+        return f"【最近对话】\n{_format(recent)}"
 
 
 def summarize_topic(topic: str, messages: list, llm_api_key: str = "") -> str:
@@ -44,4 +48,8 @@ def summarize_topic(topic: str, messages: list, llm_api_key: str = "") -> str:
 
 摘要："""
 
-    return call_llm(prompt, llm_api_key=llm_api_key).strip()
+    try:
+        return call_llm(prompt, llm_api_key=llm_api_key).strip()
+    except Exception as e:
+        print(f"[summarize_topic] LLM 总结失败: {e}")
+        return f"[总结失败] 共 {len(messages)} 条消息"
